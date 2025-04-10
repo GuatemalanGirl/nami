@@ -1,0 +1,160 @@
+body {
+  margin: 0;
+  cursor: grab;
+}
+body:active {
+  cursor: grabbing;
+}
+canvas {
+  display: block;
+}
+canvas.hovering {
+  cursor: pointer !important;
+}
+canvas.grab {
+  cursor: grab !important;
+}
+canvas.grab:active {
+  cursor: grabbing !important;
+}
+
+.logo {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  width: 200px;
+  height: auto;
+}
+
+button {
+  font-size: 20px;
+  padding: 10px 20px;
+  margin: 5px;
+  border-radius: 20px;
+  width: 75px;
+  height: 50px;
+  cursor: pointer;
+  background-color: #D1ECFF;
+  color: white;
+  border: none;
+  transition: background-color 0.3s ease;
+}
+
+button:hover {
+  background-color: #AFDDFF;
+}
+
+#leftButton, #rightButton, #infoButton {
+  font-size: 22px;
+  padding: 12px 20px;
+  background-color: #5ADBCC;
+  color: black;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+#leftButton:hover, #rightButton:hover, #infoButton:hover {
+  background-color: #FF8B79;
+  opacity: 1;
+}
+
+.nav-buttons {
+  position: absolute;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 10px;
+  z-index: 1;
+}
+
+#infoModal {
+  display: none;
+  position: fixed;
+  top: 10%;
+  right: 10%;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 20px;
+  padding: 20px;
+  z-index: 999;
+  max-width: 300px;
+  max-height: 1000px;
+  overflow-y: auto;
+  box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+}
+#infoModal h2 {
+  margin-top: 0;
+}
+.info-close-wrap {
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+}
+#infoModal button {
+  cursor: pointer;
+}
+#closeInfoButton {
+  font-size: 20px;
+  padding: 10px 20px;
+  margin: 5px;
+  border-radius: 20px;
+  width: 75px;
+  height: 50px;
+  cursor: pointer;
+  background-color: #D1ECFF;
+  color: white;
+  border: none;
+  opacity: 0.7;
+  transition: opacity 0.3s ease;
+}
+
+#closeInfoButton:hover {
+  opacity: 1;
+}
+
+
+#loadingScreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(255, 255, 255, 0.95);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 32px;
+  font-weight: bold;
+  z-index: 1000;
+  transition: opacity 1s ease;
+}
+#loadingScreen.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+#instructionOverlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  z-index: 999;
+  display: none;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+}
+.instructionContent {
+  background-color: rgba(255, 255, 255, 0.1);
+  padding: 40px;
+  border-radius: 20px;
+  font-size: 24px;
+  max-width: 600px;
+}
+ul {
+  list-style: none;
+  padding: 0;
+}

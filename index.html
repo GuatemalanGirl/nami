@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <title>NAMI_BETA</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+        "three/examples/jsm/": "https://unpkg.com/three@0.128.0/examples/jsm/",
+        "tween": "https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/dist/tween.esm.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <img src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/logo/nami_combi_logo.png" alt="Logo" class="logo"> 
+
+  <div class="nav-buttons">
+    <button id="leftButton">←</button>
+    <button id="infoButton">?</button>
+    <button id="rightButton">→</button>
+  </div>
+
+  <div id="infoModal">
+    <div id="infoContent"></div>
+    <div class="info-close-wrap">
+      <button id="closeInfoButton">X</button>
+    </div>
+  </div>
+
+  <div id="loadingScreen">
+    <div class="loadingText">로딩 중..</div>
+  </div>
+
+  <div id="instructionOverlay">
+    <div class="instructionContent">
+      <h2><strong>나만의미술관 관람 안내</strong></h2>
+      <ul>
+        <li>🖱️ 드래그/스크롤로 시점 회전</li>
+        <li>⬅️ / ➡️ 버튼으로 작품 넘기기</li>
+        <li>❔ 버튼으로 작품 설명 보기</li>
+        <li>🖼️ 작품 클릭 → 가까이 보기</li>
+      </ul>
+      <p style="margin-top: 20px;">클릭하면 시작합니다!</p>
+    </div>
+  </div>
+
+  <script type="module" src="script.js"></script>
+</body>
+</html>
