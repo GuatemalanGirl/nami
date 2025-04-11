@@ -75,7 +75,7 @@ button:hover {
   background-color: rgba(255, 255, 255, 0.9);
   border-radius: 20px;
   padding: 20px;
-  z-index: 999;
+  z-index: 995;
   max-width: 300px;
   max-height: 1000px;
   overflow-y: auto;
@@ -157,4 +157,48 @@ button:hover {
 ul {
   list-style: none;
   padding: 0;
+}
+/* 설정 아이콘 버튼 */
+button.settings-icon {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  font-size: 28px;
+  padding: 0;
+  background: none;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 998;
+  line-height: 1;
+}
+button.settings-icon:hover {
+  transform: scale(1.2);
+  color: #000; /* 진하게 */
+}
+
+/* 설정 패널 기본 위치: 화면 밖 */
+.settings-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  width: 300px;
+  height: 96vh;
+  background: rgba(255, 186, 121, 0.95);
+  box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+  border-radius: 20px;
+  padding: 20px;
+  z-index: 996;
+
+  transform: translateX(100%); /* 화면 밖으로 밀어냄 */
+  transition: transform 0.4s ease-in-out;
+  pointer-events: none; /* 클릭 막기 */
+  opacity: 0 ease-in-out;            /* 시각적으로도 안 보이게 */
+}
+
+/* 패널 열릴 때 */
+.settings-panel.open {
+  transform: translateX(0);  /* 화면 안으로 슬라이드 */
+  pointer-events: auto;
+  opacity: 1;
 }
