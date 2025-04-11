@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import TWEEN from 'tween';
+import * as TWEEN from 'tween';
 
 const paintingsData = [
       { filename: 'design_art.jpg', title: 'Design Art', description: '“그림이 말을 걸어온다…, Design? Art?!”<br>“ART(예술)라는 산에서 대중(우리)에게 내려온 디자인! 그리고 그림!”<br>현대 사회에서는 예술과 디자인의 경계가 점점 모호해지고 있습니다. 팝아트의 위대한 창시자 앤디 워홀은 일부 특권층만의 전유물로 여기던 예술(그림)을 우리 곁으로 끌어내리고, 평범한 대중들이여! 우리 모두 마음껏 예술을 즐기자고 외쳤지요. 앤디 워홀의 작품 주제는 대부분 우리와 매우 친숙한 인물이나 상품들입니다. 부드럽고 매혹적이며 아름답기 그지없는 아르누보 미술의 창시자 알폰스 무하는 화장품, 카페의 포스터 제작자로 그의 예술을 시작했습니다. 툴루즈 로트렉 역시, 파리의 유명한 댄스홀인 물랭루즈의 포스터 작가입니다. 라퐁텐느 우화집의 삽화 작가인 앙리 르마리와 현대 그래픽 아트의 대가인 레미 블랑샤르에 이르기까지… 무겁고 진지하며, 엄격함을 고수하던 전통적인 예술(그림)을 오로지 우리와 같이 평범한 대중들에게 <선물하기> 위해 애쓴 선각자들! 이들의 작품 속에서 평범하지만 아름답고, 쉽지만 철학적이며, 친숙하지만 즐거운 새로운 예술 세계를 경험하길 기대합니다.' },
@@ -76,7 +76,15 @@ async function init() {
   document.getElementById('instructionOverlay').addEventListener('click', hideInstructions);
   document.getElementById('leftButton').addEventListener('click', navigateLeft);
   document.getElementById('rightButton').addEventListener('click', navigateRight);
-  document.getElementById('infoButton').addEventListener('click', showInfo);
+  document.getElementById('infoButton').onclick = () => {
+    const modal = document.getElementById('infoModal');
+    const isVisible = modal.style.display === 'block';
+    if (isVisible) {
+      closeInfo();
+    } else {
+      showInfo();
+    }
+  };
   document.getElementById('closeInfoButton').addEventListener('click', closeInfo);
   renderer.domElement.addEventListener('click', onClick);
   renderer.domElement.addEventListener('mousemove', onPointerMove);
@@ -211,6 +219,12 @@ function navigateRight() {
   currentPaintingIndex = (currentPaintingIndex - 1 + paintings.length) % paintings.length;
   zoomTo(paintings[currentPaintingIndex]);
 }
+
+document.getElementById('settingsToggle').addEventListener('click', () => {
+  const panel = document.getElementById('settingsPanel');
+  panel.classList.toggle('open');
+});
+
 
 function zoomTo(painting) {
   if (!painting) return;
