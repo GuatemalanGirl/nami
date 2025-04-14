@@ -38,6 +38,9 @@ button {
   color: white;
   border: none;
   transition: background-color 0.3s ease;
+
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
 }
 
 button:hover {
