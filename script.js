@@ -25,12 +25,15 @@ const ROOM_WIDTH = 20, ROOM_HEIGHT = 8, ROOM_DEPTH = 20;
 const CAMERA_FOV = 75, CAMERA_NEAR = 0.1, CAMERA_FAR = 1000;
 const INITIAL_CAMERA_POS = new THREE.Vector3(0, ROOM_HEIGHT, ROOM_DEPTH * 1.5);
 const ZOOM_DISTANCE = 6, CAMERA_DURATION = 1000;
+const ZOOM_DISTANCE_CLOSER = 3; // 두 번째 줌 거리 추가
 const PAINTING_WIDTH_LIMIT = ROOM_WIDTH / 4, PAINTING_HEIGHT_LIMIT = ROOM_HEIGHT / 3;
 const PAINTING_Y_OFFSET = 0, WALL_OFFSET = 0.01;
 
 let scene, camera, renderer, controls, raycaster, pointer;
 let paintings = [], currentPaintingIndex = -1;
-let isCameraMoving = false, isZoomedIn = false;
+let isCameraMoving = false, isZoomedIn = false
+let zoomedPainting = null; // 현재 줌인된 그림을 저장할 변수
+let zoomLevel = 0; // 줌 레벨 (0: 초기, 1: 1차 줌, 2: 2차 줌)
 
 const textureLoader = new THREE.TextureLoader();
 
@@ -87,6 +90,18 @@ async function init() {
   };
   document.getElementById('closeInfoButton').addEventListener('click', closeInfo);
   renderer.domElement.addEventListener('click', onClick);
+
+  renderer.domElement.addEventListener('touchend', (event) => {
+    if (event.touches && event.touches.length > 1) return; // 멀티터치는 무시
+    event.preventDefault(); // 스크롤 방지
+    // 터치 위치 → pointer 위치로 변환
+    const touch = event.changedTouches[0];
+    const rect = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((touch.clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -((touch.clientY - rect.top) / rect.height) * 2 + 1;
+    onClick(event);
+  }, { passive: false });
+  
   renderer.domElement.addEventListener('mousemove', onPointerMove);
   window.addEventListener('resize', onResize);
 
@@ -211,13 +226,17 @@ function closeInfo() {
 function navigateLeft() {
   if (isCameraMoving || paintings.length === 0) return;
   currentPaintingIndex = (currentPaintingIndex + 1) % paintings.length;
-  zoomTo(paintings[currentPaintingIndex]);
+  zoomTo(paintings[currentPaintingIndex], ZOOM_DISTANCE); // 첫 번째 줌 거리로 초기화
+  zoomedPainting = paintings[currentPaintingIndex]; // 줌인된 그림 업데이트
+  zoomLevel = 1; // 줌 레벨 초기화
 }
 
 function navigateRight() {
   if (isCameraMoving || paintings.length === 0) return;
-  currentPaintingIndex = (currentPaintingIndex - 1 + paintings.length) % paintings.length;
-  zoomTo(paintings[currentPaintingIndex]);
+  currentPaintingIndex = (currentPaintingIndex - 1) % paintings.length;
+  zoomTo(paintings[currentPaintingIndex], ZOOM_DISTANCE); // 첫 번째 줌 거리로 초기화
+  zoomedPainting = paintings[currentPaintingIndex]; // 줌인된 그림 업데이트
+  zoomLevel = 1; // 줌 레벨 초기화
 }
 
 document.getElementById('settingsToggle').addEventListener('click', () => {
@@ -226,11 +245,11 @@ document.getElementById('settingsToggle').addEventListener('click', () => {
 });
 
 
-function zoomTo(painting) {
+function zoomTo(painting, distance) { // distance 파라미터 추가
   if (!painting) return;
   const target = painting.position.clone();
   const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(painting.quaternion);
-  const newCamPos = target.clone().addScaledVector(forward, ZOOM_DISTANCE);
+  const newCamPos = target.clone().addScaledVector(forward, distance); // distance 적용
   newCamPos.y = PAINTING_Y_OFFSET;
 
   let camTween = { ...camera.position };
@@ -267,14 +286,20 @@ function onClick(event) {
   const hits = raycaster.intersectObjects(paintings);
   if (hits.length > 0) {
     const mesh = hits[0].object;
-    const dist = camera.position.distanceTo(mesh.position);
-    if (dist > ZOOM_DISTANCE + 0.5) {
-      currentPaintingIndex = paintings.indexOf(mesh);
-      zoomTo(mesh);
-    }
+    
+    if (zoomedPainting === mesh) { // 이미 줌인된 그림을 다시 클릭한 경우
+    		if (zoomLevel === 1) {
+        		zoomTo(mesh, ZOOM_DISTANCE_CLOSER);  // 두 번째 줌
+            zoomLevel = 2;
+        }
+    } else {
+    		currentPaintingIndex = paintings.indexOf(mesh);
+        zoomTo(mesh, ZOOM_DISTANCE); // 첫 번째 줌으로
+        zoomedPainting = mesh;
+        zoomLevel = 1;
+    }    
   }
 }
-
 function onPointerMove(event) {
   pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
   pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
