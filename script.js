@@ -233,7 +233,7 @@ function navigateLeft() {
 
 function navigateRight() {
   if (isCameraMoving || paintings.length === 0) return;
-  currentPaintingIndex = (currentPaintingIndex - 1) % paintings.length;
+  currentPaintingIndex = (currentPaintingIndex - 1 + paintings.length) % paintings.length;
   zoomTo(paintings[currentPaintingIndex], ZOOM_DISTANCE); // 첫 번째 줌 거리로 초기화
   zoomedPainting = paintings[currentPaintingIndex]; // 줌인된 그림 업데이트
   zoomLevel = 1; // 줌 레벨 초기화
