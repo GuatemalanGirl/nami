@@ -167,7 +167,7 @@ async function placePaintings() {
     { axis: 'z', constVal: -ROOM_WIDTH / 2 + WALL_OFFSET, width: ROOM_DEPTH, rotY: Math.PI / 2, reverse: false }
   ];
 
-  const paintingsPerWall = 4;
+  const paintingsPerWall = Math.ceil(paintingsData.length / 4);  // 유동적 계산
   let globalIndex = 0;
 
   for (const wall of wallDefs) {
@@ -175,6 +175,8 @@ async function placePaintings() {
     const spacing = wall.width / paintingsPerWall;
 
     for (let i = 0; i < paintingsPerWall; i++) {
+      if (globalIndex >= paintingsData.length) return; // 남은 데이터 없으면 중단
+
       const pos = new THREE.Vector3();
       const localIndex = wall.reverse ? (paintingsPerWall - 1 - i) : i;
       if (wall.axis === 'x') { pos.x = start + localIndex * spacing; pos.z = wall.constVal; }
