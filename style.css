@@ -34,7 +34,7 @@ button {
   width: 75px;
   height: 50px;
   cursor: pointer;
-  background-color: #D1ECFF;
+  background-color: #d1ecff;
   color: white;
   border: none;
   transition: background-color 0.3s ease;
@@ -44,19 +44,23 @@ button {
 }
 
 button:hover {
-  background-color: #AFDDFF;
+  background-color: #afddff;
 }
 
-#leftButton, #rightButton, #infoButton {
+#leftButton,
+#rightButton,
+#infoButton {
   font-size: 22px;
   padding: 12px 20px;
-  background-color: #5ADBCC;
+  background-color: #5adbcc;
   color: black;
   opacity: 0.7;
   transition: opacity 0.3s ease;
 }
-#leftButton:hover, #rightButton:hover, #infoButton:hover {
-  background-color: #FF8B79;
+#leftButton:hover,
+#rightButton:hover,
+#infoButton:hover {
+  background-color: #ff8b79;
   opacity: 1;
 }
 
@@ -82,7 +86,7 @@ button:hover {
   max-width: 300px;
   max-height: 1000px;
   overflow-y: auto;
-  box-shadow: 0px 4px 10px rgba(0,0,0,0.3);
+  box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
 }
 #infoModal h2 {
   margin-top: 0;
@@ -103,7 +107,7 @@ button:hover {
   width: 75px;
   height: 50px;
   cursor: pointer;
-  background-color: #D1ECFF;
+  background-color: #d1ecff;
   color: white;
   border: none;
   opacity: 0.7;
@@ -113,7 +117,6 @@ button:hover {
 #closeInfoButton:hover {
   opacity: 1;
 }
-
 
 #loadingScreen {
   position: fixed;
@@ -166,18 +169,28 @@ button.settings-icon {
   position: fixed;
   top: 20px;
   right: 20px;
-  font-size: 28px;
+  width: 50px;
+  height: 50px;
+  font-size: 20px;
   padding: 0;
-  background: none;
+  background-color: #ff8b79;
   border: none;
-  border-radius: 50%;
+  border-radius: 20px;
+  opacity: 0.7;
   cursor: pointer;
   z-index: 998;
   line-height: 1;
+  transition: transform 0.4s ease-in-out;
 }
+
 button.settings-icon:hover {
-  transform: scale(1.2);
-  color: #000; /* 진하게 */
+  background-color: #5adbcc;
+  opacity: 1;
+}
+
+.settings-icon.moving {
+  transform: translateX(-340px); /* 설정창 너비+ 만큼 이동 */
+  transition: transform 0.4s ease-in-out;
 }
 
 /* 설정 패널 기본 위치: 화면 밖 */
@@ -188,20 +201,22 @@ button.settings-icon:hover {
   width: 300px;
   height: 96vh;
   background: rgba(255, 186, 121, 0.95);
-  box-shadow: -2px 0 8px rgba(0,0,0,0.2);
+  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.2);
   border-radius: 20px;
   padding: 20px;
   z-index: 996;
-
   transform: translateX(100%); /* 화면 밖으로 밀어냄 */
   transition: transform 0.4s ease-in-out;
   pointer-events: none; /* 클릭 막기 */
-  opacity: 0 ease-in-out;            /* 시각적으로도 안 보이게 */
+  opacity: 1;
+  transition:
+    transform 0.4s ease-in-out,
+    opacity 0.4s ease-in-out;
 }
 
 /* 패널 열릴 때 */
 .settings-panel.open {
-  transform: translateX(0);  /* 화면 안으로 슬라이드 */
+  transform: translateX(0); /* 화면 안으로 슬라이드 */
   pointer-events: auto;
   opacity: 1;
 }
