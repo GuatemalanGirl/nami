@@ -68,8 +68,8 @@ const paintingsData = [
     title: "Miró à Céret",
     description:
       "스페인이 자랑하는 화가 호앙 미로의 작품은 은유적이며 시적이고 상징적입니다. 어린아이 같은 순수함과 유쾌하고 천진한 해학과 유머, 의식과 무의식을 넘나드는 꿈의 세계를 담고 있습니다.",
-  },
-  {
+  }
+  /*{
     filename: "reve_de_viille_3.jpg",
     title: "Rêve de Ville III",
     description:
@@ -98,7 +98,7 @@ const paintingsData = [
     title: "Le Sarrasin",
     description:
       "사라센은 고대 아라비아반도의 유목민을 뜻합니다. 그들에게 별은 위치를 일러주는 대단히 중요한 것이었지요. 유목민의 얼굴이 연상되는 검은색의 형태와 밝은 빨간색면, 노란색과 녹색면이 역동적인 즐거움을 전해줍니다.",
-  },
+  },*/
 ]
 
 const ROOM_WIDTH = 20,
@@ -190,8 +190,8 @@ async function init() {
     .getElementById("closeInfoButton")
     .addEventListener("click", closeInfo)
   renderer.domElement.addEventListener("click", onClick)
-  
-  renderer.domElement.addEventListener('dblclick', onDoubleClick);
+
+  renderer.domElement.addEventListener("dblclick", onDoubleClick)
 
   renderer.domElement.addEventListener(
     "touchend",
@@ -455,7 +455,16 @@ function navigateRight() {
 
 document.getElementById("settingsToggle").addEventListener("click", () => {
   const panel = document.getElementById("settingsPanel")
-  panel.classList.toggle("open")
+  const gear = document.getElementById("settingsToggle")
+  const isOpen = panel.classList.contains("open")
+
+  if (isOpen) {
+    panel.classList.remove("open")
+    gear.classList.remove("moving")
+  } else {
+    panel.classList.add("open")
+    gear.classList.add("moving")
+  }
 })
 
 function zoomTo(painting, distance) {
@@ -519,14 +528,14 @@ function onClick(event) {
 }
 
 function onDoubleClick(event) {
-  if (!zoomedPainting || isCameraMoving) return;
+  if (!zoomedPainting || isCameraMoving) return
 
   if (zoomLevel === 1) {
-    zoomTo(zoomedPainting, ZOOM_DISTANCE_CLOSER); // 2차 줌
-    zoomLevel = 2;
+    zoomTo(zoomedPainting, ZOOM_DISTANCE_CLOSER) // 2차 줌
+    zoomLevel = 2
   } else if (zoomLevel === 2) {
-    zoomTo(zoomedPainting, ZOOM_DISTANCE); // 다시 1차 줌으로
-    zoomLevel = 1;
+    zoomTo(zoomedPainting, ZOOM_DISTANCE) // 다시 1차 줌으로
+    zoomLevel = 1
   }
 }
 
@@ -572,15 +581,16 @@ function onResize() {
 function animate() {
   requestAnimationFrame(animate)
   TWEEN.update()
-  
+
   // 카메라가 멀어지면 선택 해제
   if (zoomedPainting && !isCameraMoving) {
-    const dist = camera.position.distanceTo(zoomedPainting.position);
-    if (dist > ZOOM_DISTANCE + 1) { // 1 이상 멀어지면 사용자가 확실히 빠져나간 것으로 판단
-      zoomedPainting = null;
-      zoomLevel = 0;
-      isZoomedIn = false;
-      currentPaintingIndex = -1;
+    const dist = camera.position.distanceTo(zoomedPainting.position)
+    if (dist > ZOOM_DISTANCE + 1) {
+      // 1 이상 멀어지면 사용자가 확실히 빠져나간 것으로 판단
+      zoomedPainting = null
+      zoomLevel = 0
+      isZoomedIn = false
+      currentPaintingIndex = -1
     }
   }
 
