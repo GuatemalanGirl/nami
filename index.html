@@ -1,63 +1,150 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
-<head>
-  <meta charset="utf-8">
-  <title>NAMI_BETA</title>
-  <link rel="stylesheet" href="style.css" />
+  <head>
+    <meta charset="utf-8" />
+    <title>NAMI_BETA</title>
+    <link rel="stylesheet" href="style.css" />
 
-  <script type="importmap">
-    {
-      "imports": {
-        "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
-        "three/examples/jsm/": "https://unpkg.com/three@0.128.0/examples/jsm/",
-        "tween": "https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/dist/tween.esm.js"
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://unpkg.com/three@0.128.0/build/three.module.js",
+          "three/examples/jsm/": "https://unpkg.com/three@0.128.0/examples/jsm/",
+          "tween": "https://cdn.jsdelivr.net/npm/@tweenjs/tween.js@18.6.4/dist/tween.esm.js"
+        }
       }
-    }
-  </script>
-</head>
-<body>
-  <img src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/logo/nami_combi_logo.png" alt="Logo" class="logo"> 
+    </script>
+  </head>
+  <body>
+    <img
+      src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/logo/nami_combi_logo.png"
+      alt="Logo"
+      class="logo"
+    />
 
-  <div class="nav-buttons">
-    <button id="leftButton">←</button>
-    <button id="infoButton">?</button>
-    <button id="rightButton">→</button>
-  </div>
-
-  <div id="infoModal">
-    <div id="infoContent"></div>
-    <div class="info-close-wrap">
-      <button id="closeInfoButton">X</button>
+    <div class="nav-buttons">
+      <button id="leftButton">←</button>
+      <button id="infoButton">?</button>
+      <button id="rightButton">→</button>
     </div>
-  </div>
 
-  <!-- 설정 버튼 (톱니 아이콘) -->
-  <button id="settingsToggle" class="settings-icon">⚙️</button>
-
-  <!-- 슬라이딩 설정 패널 -->
-  <div id="settingsPanel" class="settings-panel">
-    <h3>설정</h3>
-    <p>여기에 설정 내용이 들어갑니다.</p>
-  </div>
-
-
-  <div id="loadingScreen">
-    <div class="loadingText">로딩 중..</div>
-  </div>
-
-  <div id="instructionOverlay">
-    <div class="instructionContent">
-      <h2><strong>나만의미술관 관람 안내</strong></h2>
-      <ul>
-        <li>🖱️ 드래그/스크롤로 시점 회전</li>
-        <li>⬅️ / ➡️ 버튼으로 작품 넘기기</li>
-        <li>❔ 버튼으로 작품 설명 보기</li>
-        <li>🖼️ 작품 클릭 → 가까이 보기</li>
-      </ul>
-      <p style="margin-top: 20px;">클릭하면 시작합니다!</p>
+    <div id="infoModal">
+      <div id="infoContent"></div>
+      <div class="info-close-wrap">
+        <button id="closeInfoButton">X</button>
+      </div>
     </div>
-  </div>
 
-  <script type="module" src="script.js"></script>
-</body>
+    <!-- 설정 버튼 (톱니 아이콘) -->
+    <button id="settingsToggle" class="settings-icon">⚙️</button>
+
+    <!-- 슬라이딩 설정 패널 -->
+    <div id="settingsPanel" class="settings-panel">
+      <div class="settings-container">
+        <!-- 메인 메뉴 -->
+        <div class="settings-slide active" id="panel-main">
+          <h3>설정</h3>
+          <div class="settings-menu">
+            <button onclick="showPanel('panel-theme')">테마설정</button>
+            <button onclick="showPanel('panel-background')">배경설정</button>
+            <button onclick="showPanel('panel-paintings')">작품선택</button>
+            <button onclick="showPanel('panel-control')">4</button>
+            <button onclick="showPanel('panel-sound')">5</button>
+            <button onclick="showPanel('panel-etc')">6</button>
+          </div>
+        </div>
+
+        <!-- 하위 패널들 -->
+        <div class="settings-slide" id="panel-theme">
+          <h1>테마설정</h1><br><h4>나미의 전시테마를 설정합니다.<br>전시명과 전시기간을 입력합니다.</h4>
+          <label for="exhibitTitle">전시명</label>
+          <input type="text" id="exhibitTitle" placeholder="예: 나만의 미술관" />
+          
+          <label for="exhibitStart">전시시작일</label>
+          <input type="date" id="exhibitStart" />
+          
+          <label for="exhibitEnd">전시종료일</label>
+          <input type="date" id="exhibitEnd" />
+          
+          <div class="button-row">
+          <button id="saveExhibitButton">확인</button>
+          <button onclick="showPanel('panel-main')">←</button>
+          </div>
+        </div>
+        
+        <div class="settings-slide" id="panel-background">
+          <h1>배경설정</h1><br><h4>나미의 배경을 설정합니다.<br>전시테마에 맞게 설정이 가능합니다.</h4>
+          <label for="backgroudGrid">배경목록</label>
+          <div class="background-grid">
+            <div class="texture-option" data-set="set1">
+              <img src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor1.png" alt="Set 1" />
+            </div>
+            <div class="texture-option" data-set="set2">
+              <img src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor2.png" alt="Set 2" />
+            </div>
+            <div class="texture-option" data-set="set3">
+              <img src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor3.png" alt="Set 3" />
+            </div>
+            <div class="texture-option" data-set="set4">
+              <img src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor4.png" alt="Set 4" />
+            </div>
+            <div class="texture-option" data-set="set5">
+              <img src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor4.png" alt="Set 5" />
+            </div>
+            <div class="texture-option" data-set="set6">
+              <img src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor6.png" alt="Set 6" />
+            </div>
+            <div class="texture-option" data-set="set7">
+              <img src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor7.jpg" alt="Set 7" />
+            </div>
+            <div class="texture-option" data-set="set8">
+              <img src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor8.png" alt="Set 8" />
+            </div>
+            <!-- 더 추가 가능 -->
+          </div>
+          <div class="button-row">
+          <button id="applyBackgroundButton">확인</button>
+          <button onclick="if (window.restoreTextureSet) restoreTextureSet(); showPanel('panel-main')">←</button>
+          </div>
+        </div>
+        <div class="settings-slide" id="panel-paintings">
+          <h3>3</h3>
+          <button onclick="showPanel('panel-main')">←</button>
+        </div>
+        <div class="settings-slide" id="panel-control">
+          <h3>4</h3>
+          <button onclick="showPanel('panel-main')">←</button>
+        </div>
+        <div class="settings-slide" id="panel-sound">
+          <h3>5</h3>
+          <button onclick="showPanel('panel-main')">←</button>
+        </div>
+        <div class="settings-slide" id="panel-etc">
+          <h3>6</h3>
+          <button onclick="showPanel('panel-main')">←</button>
+        </div>
+      </div>
+    </div>
+    
+    <div id="galleryInfo"></div>
+
+    <div id="loadingScreen">
+      <div class="loadingText">로딩 중..</div>
+    </div>
+
+    <div id="instructionOverlay">
+      <div class="instructionContent">
+        <h2><strong>나만의미술관 관람 안내</strong></h2>
+        <ul>
+          <li>🖱️ 드래그/스크롤로 시점 회전</li>
+          <li>⬅️ / ➡️ 버튼으로 작품 넘기기</li>
+          <li>❔ 버튼으로 작품 설명 보기</li>
+          <li>🖼️ 작품 클릭 → 가까이 보기</li>
+        </ul>
+        <p style="margin-top: 20px">클릭하면 시작합니다!</p>
+      </div>
+    </div>
+
+    <script type="module" src="script.js"></script>
+  </body>
 </html>
