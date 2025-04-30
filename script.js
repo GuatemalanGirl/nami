@@ -68,7 +68,7 @@ const paintingsData = [
     title: "Miró à Céret",
     description:
       "스페인이 자랑하는 화가 호앙 미로의 작품은 은유적이며 시적이고 상징적입니다. 어린아이 같은 순수함과 유쾌하고 천진한 해학과 유머, 의식과 무의식을 넘나드는 꿈의 세계를 담고 있습니다.",
-  }
+  },
   /*{
     filename: "reve_de_viille_3.jpg",
     title: "Rêve de Ville III",
@@ -254,13 +254,16 @@ function createRoom() {
     material,
     position,
     rotation,
-    shouldFlipNormal = false,
+    name,
+    shouldFlipNormal = false
   ) => {
     if (shouldFlipNormal) geometry.scale(-1, 1, 1)
     const mesh = new THREE.Mesh(geometry, material)
     mesh.position.copy(position)
     mesh.rotation.copy(rotation)
+    mesh.name = name // 이름설정
     scene.add(mesh)
+    return mesh // 나중에 필요하면 mesh 반환 가능
   }
 
   makeWall(
@@ -268,39 +271,45 @@ function createRoom() {
     new THREE.MeshStandardMaterial({ map: textures.floor }),
     new THREE.Vector3(0, -ROOM_HEIGHT / 2, 0),
     new THREE.Euler(-Math.PI / 2, 0, 0),
+    "floor"
   )
   makeWall(
     new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_DEPTH),
     new THREE.MeshStandardMaterial({ map: textures.ceiling }),
     new THREE.Vector3(0, ROOM_HEIGHT / 2, 0),
     new THREE.Euler(-Math.PI / 2, 0, 0),
-    true,
+    "ceiling",
+    true
   )
   makeWall(
     new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.back }),
     new THREE.Vector3(0, PAINTING_Y_OFFSET, -ROOM_DEPTH / 2),
     new THREE.Euler(0, 0, 0),
+    "back"
   )
   makeWall(
     new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.front }),
     new THREE.Vector3(0, PAINTING_Y_OFFSET, ROOM_DEPTH / 2),
     new THREE.Euler(0, 0, 0),
-    true,
+    "front",
+    true
   )
   makeWall(
     new THREE.PlaneGeometry(ROOM_DEPTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.left }),
     new THREE.Vector3(-ROOM_WIDTH / 2, PAINTING_Y_OFFSET, 0),
     new THREE.Euler(0, Math.PI / 2, 0),
+    "left"
   )
   makeWall(
     new THREE.PlaneGeometry(ROOM_DEPTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.right }),
     new THREE.Vector3(ROOM_WIDTH / 2, PAINTING_Y_OFFSET, 0),
-    new THREE.Euler(0, Math.PI / 2, 0),
-    true,
+    new THREE.Euler(0, Math.PI / 2, 0), 
+    "right",
+    true
   )
 }
 
@@ -459,6 +468,7 @@ document.getElementById("settingsToggle").addEventListener("click", () => {
   const isOpen = panel.classList.contains("open")
 
   if (isOpen) {
+    restoreTextureSet();
     panel.classList.remove("open")
     gear.classList.remove("moving")
   } else {
@@ -602,4 +612,242 @@ function animate() {
   renderer.render(scene, camera)
 }
 
-window.onload = init
+let exhibitInfo = {
+  title: "",
+  startDate: null,
+  endDate: null,
+};
+
+function setupExhibitSettings() {
+  const titleInput = document.getElementById("exhibitTitle");
+  const startInput = document.getElementById("exhibitStart");
+  const endInput = document.getElementById("exhibitEnd");
+  const saveBtn = document.getElementById("saveExhibitButton");
+
+  if (!titleInput || !startInput || !endInput || !saveBtn) return;
+
+  // 기존 저장값 로딩
+  const saved = localStorage.getItem("exhibitInfo");
+  if (saved) {
+    const parsed = JSON.parse(saved);
+    exhibitInfo = parsed;
+    titleInput.value = parsed.title || "";
+    startInput.value = parsed.startDate || "";
+    endInput.value = parsed.endDate || "";
+  }
+
+  // 저장 버튼 클릭 시 저장
+  document.getElementById("saveExhibitButton").addEventListener("click", () => {
+    exhibitInfo.title = titleInput.value;
+    exhibitInfo.startDate = startInput.value;
+    exhibitInfo.endDate = endInput.value;
+
+    localStorage.setItem("exhibitInfo", JSON.stringify(exhibitInfo));
+    updateGalleryInfo(); // 저장버튼 클릭하면 갤러리 정보도 업데이트
+
+    alert("테마설정이 적용되었습니다!");
+  });
+  updateGalleryInfo(); // setupExhibitSettings 끝날 때도 초기 갤러리 정보 업데이트
+
+  // ****************개발 모드****************
+  const isDevMode = false; // 출시할 때는 반드시 false로 바꾸기!!!!!!!!!!!!!!
+
+}
+
+function checkExhibitPeriod() {
+  //if (isDevMode) return; // 개발 중이면 체크 스킵 ************** --> '//' 해제하기
+
+  if (!exhibitInfo.endDate) return;
+
+  const today = new Date();
+  const end = new Date(exhibitInfo.endDate);
+
+  if (today > end) {
+    document.body.innerHTML = `
+      <div style="text-align:center; margin-top:50px;">
+        <h1>전시가 종료되었습니다</h1>
+        <button id="resetExhibitButton" style="
+          margin-top:20px; padding:10px 20px;
+          background-color:#ff6666; color:white;
+          font-size:18px; border:none; border-radius:20px;
+          cursor:pointer;
+        ">
+          X
+        </button>
+      </div>
+    `;
+
+    // 초기화 버튼 기능 연결
+    document.getElementById("resetExhibitButton").addEventListener("click", () => {
+      localStorage.removeItem("exhibitInfo");
+      alert("전시 설정이 초기화되었습니다! 새로고침됩니다.");
+      location.reload(); // 새로고침
+    });
+  }
+}
+
+function updateGalleryInfo() {
+  const infoDiv = document.getElementById("galleryInfo");
+  if (!infoDiv) return;
+
+  const { title, startDate, endDate } = exhibitInfo;
+
+  if (title || (startDate && endDate)) {
+    infoDiv.innerHTML = `
+      <div class="title">${title || "전시명 없음"}</div>
+      <div class="period">${startDate || "?"} ~ ${endDate || "?"}</div>
+    `;
+  } else {
+    infoDiv.innerHTML = "";
+  }
+}
+
+const textureSets = {
+  set1: {
+    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor1.png",
+    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling1.png",
+    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls1.png"  
+  },
+  set2: {
+    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor2.png",
+    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling2.png",
+    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls2.png"
+  },
+  set3: {
+    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor3.png",
+    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling3.png",
+    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls3.png"
+  },
+  set4: {
+    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor4.png",
+    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling4.png",
+    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls4.png"
+  },
+  set5: {
+    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor5.png",
+    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling5.png",
+    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls5.png"
+  },
+  set6: {
+    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor6.png",
+    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling6.png",
+    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls6.png"
+  },
+  set7: {
+    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor7.jpg",
+    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling7.png",
+    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls8.png"
+  },
+  set8: {
+    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor8.png",
+    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling8.png",
+    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls9.png"
+  }
+};
+
+let selectedTextureSet = null;        // 사용자가 선택한 (미리보기용)
+let confirmedTextureSet = null;       // 마지막으로 저장된 값
+
+document.querySelectorAll(".texture-option").forEach(option => {
+  option.addEventListener("click", () => {
+    const setName = option.getAttribute("data-set");
+    selectedTextureSet = setName;
+    applyPreviewTextureSet(setName); // 선택된 썸네일 배경 즉시 미리보기
+    highlightSelectedOption(option); // 선택된 썸네일 시각적으로 표시
+  });
+});
+
+function applyPreviewTextureSet(setName) {
+  const set = textureSets[setName];
+  if (!set) return;
+
+  const floor = textureLoader.load(set.floor);
+  const ceiling = textureLoader.load(set.ceiling);
+  const walls = textureLoader.load(set.walls);
+  updateRoomTextures(floor, ceiling, walls); // ✅ 즉시 반영
+}
+
+function applyTextureSet(setName) {
+  confirmedTextureSet = setName; // ✅ 진짜 확정
+  selectedTextureSet = setName;
+  localStorage.setItem("selectedTextureSet", setName);
+  applyPreviewTextureSet(setName);
+}
+
+function restoreTextureSet() {
+  if (!confirmedTextureSet || !scene) return;
+  applyPreviewTextureSet(confirmedTextureSet);
+  selectedTextureSet = confirmedTextureSet;
+}
+
+function updateRoomTextures(floorTex, ceilingTex, wallTex) {
+  const floor = scene.getObjectByName("floor");
+  const ceiling = scene.getObjectByName("ceiling");
+  const back = scene.getObjectByName("back");
+  const front = scene.getObjectByName("front");
+  const left = scene.getObjectByName("left");
+  const right = scene.getObjectByName("right");
+
+  if (floor) floor.material.map = floorTex;
+  if (ceiling) ceiling.material.map = ceilingTex;
+  if (back) back.material.map = wallTex;
+  if (front) front.material.map = wallTex;
+  if (left) left.material.map = wallTex;
+  if (right) right.material.map = wallTex;
+
+  // 중요! 텍스처 바꿨으면 업데이트 필요
+  [floor, ceiling, back, front, left, right].forEach(mesh => {
+    if (mesh) mesh.material.needsUpdate = true;
+  });
+}
+
+function initApp() {
+  const savedTextureSet = localStorage.getItem("selectedTextureSet");
+  if (savedTextureSet) {
+    confirmedTextureSet = savedTextureSet;
+    selectedTextureSet = savedTextureSet;
+  }
+
+  init(); // Three.js 관련 세팅
+  setupExhibitSettings();
+  checkExhibitPeriod();
+  updateGalleryInfo();
+}
+
+function highlightSelectedOption(selected) {
+  document.querySelectorAll(".texture-option").forEach(opt => {
+    opt.style.border = "2px solid transparent";
+  });
+  selected.style.border = "2px solid #ff8b79"; // 선택된 것 강조
+}
+
+document.getElementById("applyBackgroundButton").addEventListener("click", () => {
+  if (!selectedTextureSet) {
+    alert("배경을 선택하세요!");
+    return;
+  }
+
+  applyTextureSet(selectedTextureSet);
+  alert("배경이 적용되었습니다!")
+  
+  localStorage.setItem("selectedTextureSet", selectedTextureSet);
+
+});
+
+window.onload = initApp;
+
+console.log(document.getElementById("settingsSlider"))
+window.showPanel = function (panelId) {
+  const currentActive = document.querySelector(".settings-slide.active");
+  const currentId = currentActive?.id;
+
+  // 백그라운드 → 메인으로 이동할 때만 복원
+  if (currentId === "panel-background" && panelId === "panel-main") {
+    restoreTextureSet();
+  }
+
+  document.querySelectorAll(".settings-slide").forEach((panel) => {
+    panel.classList.remove("active")
+  });
+  document.getElementById(panelId).classList.add("active")
+}
