@@ -189,7 +189,7 @@ button.settings-icon:hover {
 }
 
 .settings-icon.moving {
-  transform: translateX(-340px); /* 설정창 너비+ 만큼 이동 */
+  transform: translateX(-300px); /* 설정창 너비+ 만큼 이동 */
   transition: transform 0.4s ease-in-out;
 }
 
@@ -203,20 +203,160 @@ button.settings-icon:hover {
   background: rgba(255, 186, 121, 0.95);
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.2);
   border-radius: 20px;
-  padding: 20px;
   z-index: 996;
-  transform: translateX(100%); /* 화면 밖으로 밀어냄 */
+  transform: translateX(100%);
   transition: transform 0.4s ease-in-out;
-  pointer-events: none; /* 클릭 막기 */
-  opacity: 1;
-  transition:
-    transform 0.4s ease-in-out,
-    opacity 0.4s ease-in-out;
+  pointer-events: none;
+  overflow: hidden;
 }
 
-/* 패널 열릴 때 */
 .settings-panel.open {
-  transform: translateX(0); /* 화면 안으로 슬라이드 */
+  transform: translateX(0);
   pointer-events: auto;
+}
+
+.settings-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.settings-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  padding: 20px;
+  box-sizing: border-box;
+  background: rgba(255, 186, 121, 0.1);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(100%);
+  transition: all 0.4s ease-in-out;
+  z-index: 0;
+}
+
+.settings-slide.active {
   opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+  z-index: 2;
+}
+
+.settings-slide input[type="text"],
+.settings-slide input[type="date"] {
+  display: block;
+  width: 60%;
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 10px;
+  border: 1px solid #ccc;
+  font-size: 16px;
+}
+
+.settings-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settings-menu button {
+  all: unset; /* 모든 버튼 기본 스타일 제거! */
+  display: block;
+  width: 100%;
+  text-align: left;
+  font-size: 30px;
+  padding: 10px 0;
+  color: #333;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.1); /* 살짝 구분선 */
+}
+
+.settings-menu button:hover {
+  color: #ff8b79; /* 호버할 때 컬러 변경 */
+}
+
+.button-row {
+  display: flex;
+  justify-content: space-between; /* 좌우로 나눔 */
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.button-row button {
+  flex: 1; /* 같은 너비로 균등 분배 */
+  padding: 10px;
+  font-size: 16px;
+  border: none;
+  border-radius: 20px;
+  background-color: #5adbcc;
+  color: white;
+  opacity: 0.7;
+  cursor: pointer;
+  word-break: keep-all; /* ✅ 줄바꿈 이상 방지 */
+  white-space: nowrap;  /* ✅ 한 줄로 유지 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.button-row button:hover {
+  background-color: #ff8b79;
+}
+
+#galleryInfo {
+  position: fixed;
+  bottom: 10px;
+  left: 10px;
+  /*background-color: rgba(255, 255, 255, 0.7);*/
+  /*padding: 10px 15px;*/
+  border-radius: 10px;
+  /*font-size: 14px;*/
+  line-height: 1.4;
+  z-index: 997; /* 로고보다 아래, 설정창보다 위 정도 */
+  max-width: 250px;
+  /*box-shadow: 0px 2px 8px rgba(0, 0, 0, 0.2);*/
+  pointer-events: none; /* 클릭 방지 */
+}
+
+#galleryInfo .title {
+  font-size: 25px;
+  color: #000000;
+  font-weight: bold;
+}
+
+#galleryInfo .period {
+  font-size: 20px;
+  color: #555;
+}
+
+.background-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.texture-option {
+  width: 100%;
+  aspect-ratio: 1 / 1; /* 정사각형으로 맞추기 */
+  border: 2px solid transparent;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: border 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.texture-option img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* 비율 유지하면서 꽉 채우기 */
+  display: block;
+}
+
+.texture-option:hover {
+  border: 2px solid #ff8b79;
 }
