@@ -255,7 +255,7 @@ function createRoom() {
     position,
     rotation,
     name,
-    shouldFlipNormal = false
+    shouldFlipNormal = false,
   ) => {
     if (shouldFlipNormal) geometry.scale(-1, 1, 1)
     const mesh = new THREE.Mesh(geometry, material)
@@ -271,7 +271,7 @@ function createRoom() {
     new THREE.MeshStandardMaterial({ map: textures.floor }),
     new THREE.Vector3(0, -ROOM_HEIGHT / 2, 0),
     new THREE.Euler(-Math.PI / 2, 0, 0),
-    "floor"
+    "floor",
   )
   makeWall(
     new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_DEPTH),
@@ -279,14 +279,14 @@ function createRoom() {
     new THREE.Vector3(0, ROOM_HEIGHT / 2, 0),
     new THREE.Euler(-Math.PI / 2, 0, 0),
     "ceiling",
-    true
+    true,
   )
   makeWall(
     new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.back }),
     new THREE.Vector3(0, PAINTING_Y_OFFSET, -ROOM_DEPTH / 2),
     new THREE.Euler(0, 0, 0),
-    "back"
+    "back",
   )
   makeWall(
     new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT),
@@ -294,22 +294,22 @@ function createRoom() {
     new THREE.Vector3(0, PAINTING_Y_OFFSET, ROOM_DEPTH / 2),
     new THREE.Euler(0, 0, 0),
     "front",
-    true
+    true,
   )
   makeWall(
     new THREE.PlaneGeometry(ROOM_DEPTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.left }),
     new THREE.Vector3(-ROOM_WIDTH / 2, PAINTING_Y_OFFSET, 0),
     new THREE.Euler(0, Math.PI / 2, 0),
-    "left"
+    "left",
   )
   makeWall(
     new THREE.PlaneGeometry(ROOM_DEPTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.right }),
     new THREE.Vector3(ROOM_WIDTH / 2, PAINTING_Y_OFFSET, 0),
-    new THREE.Euler(0, Math.PI / 2, 0), 
+    new THREE.Euler(0, Math.PI / 2, 0),
     "right",
-    true
+    true,
   )
 }
 
@@ -468,7 +468,7 @@ document.getElementById("settingsToggle").addEventListener("click", () => {
   const isOpen = panel.classList.contains("open")
 
   if (isOpen) {
-    restoreTextureSet();
+    restoreTextureSet()
     panel.classList.remove("open")
     gear.classList.remove("moving")
   } else {
@@ -616,51 +616,50 @@ let exhibitInfo = {
   title: "",
   startDate: null,
   endDate: null,
-};
+}
 
 function setupExhibitSettings() {
-  const titleInput = document.getElementById("exhibitTitle");
-  const startInput = document.getElementById("exhibitStart");
-  const endInput = document.getElementById("exhibitEnd");
-  const saveBtn = document.getElementById("saveExhibitButton");
+  const titleInput = document.getElementById("exhibitTitle")
+  const startInput = document.getElementById("exhibitStart")
+  const endInput = document.getElementById("exhibitEnd")
+  const saveBtn = document.getElementById("saveExhibitButton")
 
-  if (!titleInput || !startInput || !endInput || !saveBtn) return;
+  if (!titleInput || !startInput || !endInput || !saveBtn) return
 
   // 기존 저장값 로딩
-  const saved = localStorage.getItem("exhibitInfo");
+  const saved = localStorage.getItem("exhibitInfo")
   if (saved) {
-    const parsed = JSON.parse(saved);
-    exhibitInfo = parsed;
-    titleInput.value = parsed.title || "";
-    startInput.value = parsed.startDate || "";
-    endInput.value = parsed.endDate || "";
+    const parsed = JSON.parse(saved)
+    exhibitInfo = parsed
+    titleInput.value = parsed.title || ""
+    startInput.value = parsed.startDate || ""
+    endInput.value = parsed.endDate || ""
   }
 
   // 저장 버튼 클릭 시 저장
   document.getElementById("saveExhibitButton").addEventListener("click", () => {
-    exhibitInfo.title = titleInput.value;
-    exhibitInfo.startDate = startInput.value;
-    exhibitInfo.endDate = endInput.value;
+    exhibitInfo.title = titleInput.value
+    exhibitInfo.startDate = startInput.value
+    exhibitInfo.endDate = endInput.value
 
-    localStorage.setItem("exhibitInfo", JSON.stringify(exhibitInfo));
-    updateGalleryInfo(); // 저장버튼 클릭하면 갤러리 정보도 업데이트
+    localStorage.setItem("exhibitInfo", JSON.stringify(exhibitInfo))
+    updateGalleryInfo() // 저장버튼 클릭하면 갤러리 정보도 업데이트
 
-    alert("테마설정이 적용되었습니다!");
-  });
-  updateGalleryInfo(); // setupExhibitSettings 끝날 때도 초기 갤러리 정보 업데이트
+    alert("테마설정이 적용되었습니다!")
+  })
+  updateGalleryInfo() // setupExhibitSettings 끝날 때도 초기 갤러리 정보 업데이트
 
   // ****************개발 모드****************
-  const isDevMode = false; // 출시할 때는 반드시 false로 바꾸기!!!!!!!!!!!!!!
-
+  const isDevMode = false // 출시할 때는 반드시 false로 바꾸기!!!!!!!!!!!!!!
 }
 
 function checkExhibitPeriod() {
   //if (isDevMode) return; // 개발 중이면 체크 스킵 ************** --> '//' 해제하기
 
-  if (!exhibitInfo.endDate) return;
+  if (!exhibitInfo.endDate) return
 
-  const today = new Date();
-  const end = new Date(exhibitInfo.endDate);
+  const today = new Date()
+  const end = new Date(exhibitInfo.endDate)
 
   if (today > end) {
     document.body.innerHTML = `
@@ -675,179 +674,216 @@ function checkExhibitPeriod() {
           X
         </button>
       </div>
-    `;
+    `
 
     // 초기화 버튼 기능 연결
-    document.getElementById("resetExhibitButton").addEventListener("click", () => {
-      localStorage.removeItem("exhibitInfo");
-      alert("전시 설정이 초기화되었습니다! 새로고침됩니다.");
-      location.reload(); // 새로고침
-    });
+    document
+      .getElementById("resetExhibitButton")
+      .addEventListener("click", () => {
+        localStorage.removeItem("exhibitInfo")
+        alert("전시 설정이 초기화되었습니다! 새로고침됩니다.")
+        location.reload() // 새로고침
+      })
   }
 }
 
 function updateGalleryInfo() {
-  const infoDiv = document.getElementById("galleryInfo");
-  if (!infoDiv) return;
+  const infoDiv = document.getElementById("galleryInfo")
+  if (!infoDiv) return
 
-  const { title, startDate, endDate } = exhibitInfo;
+  const { title, startDate, endDate } = exhibitInfo
 
   if (title || (startDate && endDate)) {
     infoDiv.innerHTML = `
       <div class="title">${title || "전시명 없음"}</div>
       <div class="period">${startDate || "?"} ~ ${endDate || "?"}</div>
-    `;
+    `
   } else {
-    infoDiv.innerHTML = "";
+    infoDiv.innerHTML = ""
   }
 }
 
 const textureSets = {
   set1: {
-    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor1.png",
-    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling1.png",
-    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls1.png"  
+    floor:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor1.png",
+    ceiling:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling1.png",
+    walls:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls1.png",
   },
   set2: {
-    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor2.png",
-    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling2.png",
-    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls2.png"
+    floor:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor2.png",
+    ceiling:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling2.png",
+    walls:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls2.png",
   },
   set3: {
-    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor3.png",
-    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling3.png",
-    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls3.png"
+    floor:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor3.png",
+    ceiling:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling3.png",
+    walls:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls3.png",
   },
   set4: {
-    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor4.png",
-    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling4.png",
-    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls4.png"
+    floor:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor4.png",
+    ceiling:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling4.png",
+    walls:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls4.png",
   },
   set5: {
-    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor5.png",
-    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling5.png",
-    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls5.png"
+    floor:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor5.png",
+    ceiling:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling5.png",
+    walls:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls5.png",
   },
   set6: {
-    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor6.png",
-    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling6.png",
-    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls6.png"
+    floor:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor6.png",
+    ceiling:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling6.png",
+    walls:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls6.png",
   },
   set7: {
-    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor7.jpg",
-    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling7.png",
-    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls8.png"
+    floor:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor7.jpg",
+    ceiling:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling7.png",
+    walls:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls8.png",
   },
   set8: {
-    floor: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor8.png",
-    ceiling: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling8.png",
-    walls: "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls9.png"
-  }
-};
+    floor:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor8.png",
+    ceiling:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling8.png",
+    walls:
+      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls9.png",
+  },
+}
 
-let selectedTextureSet = null;        // 사용자가 선택한 (미리보기용)
-let confirmedTextureSet = null;       // 마지막으로 저장된 값
+let selectedTextureSet = null // 사용자가 선택한 (미리보기용)
+let confirmedTextureSet = null // 마지막으로 저장된 값
 
-document.querySelectorAll(".texture-option").forEach(option => {
+document.querySelectorAll(".texture-option").forEach((option) => {
   option.addEventListener("click", () => {
-    const setName = option.getAttribute("data-set");
-    selectedTextureSet = setName;
-    applyPreviewTextureSet(setName); // 선택된 썸네일 배경 즉시 미리보기
-    highlightSelectedOption(option); // 선택된 썸네일 시각적으로 표시
-  });
-});
+    const setName = option.getAttribute("data-set")
+    selectedTextureSet = setName
+    applyPreviewTextureSet(setName) // 선택된 썸네일 배경 즉시 미리보기
+    highlightSelectedOption(option) // 선택된 썸네일 시각적으로 표시
+  })
+})
 
 function applyPreviewTextureSet(setName) {
-  const set = textureSets[setName];
-  if (!set) return;
+  const set = textureSets[setName]
+  if (!set) return
 
-  const floor = textureLoader.load(set.floor);
-  const ceiling = textureLoader.load(set.ceiling);
-  const walls = textureLoader.load(set.walls);
-  updateRoomTextures(floor, ceiling, walls); // ✅ 즉시 반영
+  const floor = textureLoader.load(set.floor)
+  const ceiling = textureLoader.load(set.ceiling)
+  const walls = textureLoader.load(set.walls)
+  updateRoomTextures(floor, ceiling, walls) // ✅ 즉시 반영
 }
 
 function applyTextureSet(setName) {
-  confirmedTextureSet = setName; // ✅ 진짜 확정
-  selectedTextureSet = setName;
-  localStorage.setItem("selectedTextureSet", setName);
-  applyPreviewTextureSet(setName);
+  confirmedTextureSet = setName // ✅ 진짜 확정
+  selectedTextureSet = setName
+  localStorage.setItem("selectedTextureSet", setName)
+  applyPreviewTextureSet(setName)
 }
 
 function restoreTextureSet() {
-  if (!confirmedTextureSet || !scene) return;
-  applyPreviewTextureSet(confirmedTextureSet);
-  selectedTextureSet = confirmedTextureSet;
+  if (!confirmedTextureSet || !scene) return
+  applyPreviewTextureSet(confirmedTextureSet)
+  selectedTextureSet = confirmedTextureSet
 }
 
 function updateRoomTextures(floorTex, ceilingTex, wallTex) {
-  const floor = scene.getObjectByName("floor");
-  const ceiling = scene.getObjectByName("ceiling");
-  const back = scene.getObjectByName("back");
-  const front = scene.getObjectByName("front");
-  const left = scene.getObjectByName("left");
-  const right = scene.getObjectByName("right");
+  const floor = scene.getObjectByName("floor")
+  const ceiling = scene.getObjectByName("ceiling")
+  const back = scene.getObjectByName("back")
+  const front = scene.getObjectByName("front")
+  const left = scene.getObjectByName("left")
+  const right = scene.getObjectByName("right")
 
-  if (floor) floor.material.map = floorTex;
-  if (ceiling) ceiling.material.map = ceilingTex;
-  if (back) back.material.map = wallTex;
-  if (front) front.material.map = wallTex;
-  if (left) left.material.map = wallTex;
-  if (right) right.material.map = wallTex;
+  if (floor) floor.material.map = floorTex
+  if (ceiling) ceiling.material.map = ceilingTex
+  if (back) back.material.map = wallTex
+  if (front) front.material.map = wallTex
+  if (left) left.material.map = wallTex
+  if (right)
+    right.material.map = wallTex
 
-  // 중요! 텍스처 바꿨으면 업데이트 필요
-  [floor, ceiling, back, front, left, right].forEach(mesh => {
-    if (mesh) mesh.material.needsUpdate = true;
-  });
+    // 중요! 텍스처 바꿨으면 업데이트 필요
+  ;[floor, ceiling, back, front, left, right].forEach((mesh) => {
+    if (mesh) mesh.material.needsUpdate = true
+  })
 }
 
 function initApp() {
-  const savedTextureSet = localStorage.getItem("selectedTextureSet");
+  // 먼저 저장된 texture set을 미리 기억해둠
+  const savedTextureSet = localStorage.getItem("selectedTextureSet")
   if (savedTextureSet) {
-    confirmedTextureSet = savedTextureSet;
-    selectedTextureSet = savedTextureSet;
+    confirmedTextureSet = savedTextureSet
+    selectedTextureSet = savedTextureSet
   }
 
-  init(); // Three.js 관련 세팅
-  setupExhibitSettings();
-  checkExhibitPeriod();
-  updateGalleryInfo();
+  // Three.js 초기화 (async 버전으로)
+  init().then(() => {
+    // ✅ scene, walls 다 준비된 후 텍스처 적용
+    if (confirmedTextureSet) {
+      applyPreviewTextureSet(confirmedTextureSet);
+    }
+
+    // 이 시점에 나머지 UI 설정 시작
+    setupExhibitSettings();
+    checkExhibitPeriod();
+    updateGalleryInfo();
+  });
 }
 
 function highlightSelectedOption(selected) {
-  document.querySelectorAll(".texture-option").forEach(opt => {
-    opt.style.border = "2px solid transparent";
-  });
-  selected.style.border = "2px solid #ff8b79"; // 선택된 것 강조
+  document.querySelectorAll(".texture-option").forEach((opt) => {
+    opt.style.border = "2px solid transparent"
+  })
+  selected.style.border = "2px solid #ff8b79" // 선택된 것 강조
 }
 
-document.getElementById("applyBackgroundButton").addEventListener("click", () => {
-  if (!selectedTextureSet) {
-    alert("배경을 선택하세요!");
-    return;
-  }
+document
+  .getElementById("applyBackgroundButton")
+  .addEventListener("click", () => {
+    if (!selectedTextureSet) {
+      alert("배경을 선택하세요!")
+      return
+    }
 
-  applyTextureSet(selectedTextureSet);
-  alert("배경이 적용되었습니다!")
-  
-  localStorage.setItem("selectedTextureSet", selectedTextureSet);
+    applyTextureSet(selectedTextureSet)
+    alert("배경이 적용되었습니다!")
 
-});
+    localStorage.setItem("selectedTextureSet", selectedTextureSet)
+  })
 
-window.onload = initApp;
+window.onload = initApp
 
 console.log(document.getElementById("settingsSlider"))
 window.showPanel = function (panelId) {
-  const currentActive = document.querySelector(".settings-slide.active");
-  const currentId = currentActive?.id;
+  const currentActive = document.querySelector(".settings-slide.active")
+  const currentId = currentActive?.id
 
   // 백그라운드 → 메인으로 이동할 때만 복원
   if (currentId === "panel-background" && panelId === "panel-main") {
-    restoreTextureSet();
+    restoreTextureSet()
   }
 
   document.querySelectorAll(".settings-slide").forEach((panel) => {
     panel.classList.remove("active")
-  });
+  })
   document.getElementById(panelId).classList.add("active")
 }
