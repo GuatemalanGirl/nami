@@ -107,7 +107,7 @@ const ROOM_WIDTH = 20,
 const CAMERA_FOV = 75,
   CAMERA_NEAR = 0.1,
   CAMERA_FAR = 1000
-const INITIAL_CAMERA_POS = new THREE.Vector3(0, ROOM_HEIGHT, ROOM_DEPTH * 1.5)
+const INITIAL_CAMERA_POS = new THREE.Vector3(0, ROOM_HEIGHT, -ROOM_DEPTH * 1.5)
 const ZOOM_DISTANCE = 6,
   CAMERA_DURATION = 1000
 const ZOOM_DISTANCE_CLOSER = 3 // 두 번째 줌 거리 추가
@@ -142,6 +142,60 @@ async function init() {
   renderer = new THREE.WebGLRenderer({ antialias: true })
   renderer.setSize(window.innerWidth, window.innerHeight)
   document.body.appendChild(renderer.domElement)
+
+  // 드래그 앤 드롭 이벤트 등록
+renderer.domElement.addEventListener("dragover", (e) => {
+  e.preventDefault(); // 기본 동작 방지
+});
+
+renderer.domElement.addEventListener("drop", (e) => {
+  e.preventDefault();
+  const index = e.dataTransfer.getData("paintingIndex");
+  console.log("Dropped painting index:", index);
+
+  if (index === "") {
+    console.warn("No index found");
+    return;
+  }
+
+  const paintingData = paintingsData[index];
+  console.log("Painting data:", paintingData);
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+
+  raycaster.setFromCamera(mouse, camera);
+
+  const wallMesh = scene.getObjectByName(currentWall);
+  if (!wallMesh) {
+    console.warn("Wall not found:", currentWall);
+    return;
+  }
+
+  const intersects = raycaster.intersectObject(wallMesh);
+  console.log("Intersects:", intersects);
+
+  if (intersects.length > 0) {
+    const point = intersects[0].point.clone();
+    const normal = intersects[0].face.normal.clone().transformDirection(wallMesh.matrixWorld);
+    point.add(normal.multiplyScalar(0.05));
+
+    const wallRotY = {
+      front: Math.PI,
+      back: 0,
+      left: -Math.PI / 2,
+      right: Math.PI / 2,
+    }[currentWall];
+
+    loadAndAddPainting(paintingData, point, wallRotY);
+  } else {
+    console.warn("No intersection with wall.");
+  }
+});
+
 
   controls = new OrbitControls(camera, renderer.domElement)
   controls.target.set(0, PAINTING_Y_OFFSET, 0)
@@ -283,34 +337,38 @@ function createRoom() {
   )
   makeWall(
     new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT),
+    new THREE.MeshStandardMaterial({ map: textures.front }),
+    new THREE.Vector3(0, PAINTING_Y_OFFSET, ROOM_DEPTH / 2),
+    new THREE.Euler(0, 0, 0), // 회전은 그대로
+    "front",
+    true // ✅ 법선 뒤집기
+  )
+  
+  makeWall(
+    new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.back }),
     new THREE.Vector3(0, PAINTING_Y_OFFSET, -ROOM_DEPTH / 2),
     new THREE.Euler(0, 0, 0),
-    "back",
+    "back"
   )
-  makeWall(
-    new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT),
-    new THREE.MeshStandardMaterial({ map: textures.front }),
-    new THREE.Vector3(0, PAINTING_Y_OFFSET, ROOM_DEPTH / 2),
-    new THREE.Euler(0, 0, 0),
-    "front",
-    true,
-  )
+  
   makeWall(
     new THREE.PlaneGeometry(ROOM_DEPTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.left }),
-    new THREE.Vector3(-ROOM_WIDTH / 2, PAINTING_Y_OFFSET, 0),
+    new THREE.Vector3(ROOM_WIDTH / 2, PAINTING_Y_OFFSET, 0),
     new THREE.Euler(0, Math.PI / 2, 0),
     "left",
+    true // ✅ 실내를 보도록 뒤집기
   )
+  
   makeWall(
     new THREE.PlaneGeometry(ROOM_DEPTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.right }),
-    new THREE.Vector3(ROOM_WIDTH / 2, PAINTING_Y_OFFSET, 0),
+    new THREE.Vector3(-ROOM_WIDTH / 2, PAINTING_Y_OFFSET, 0),
     new THREE.Euler(0, Math.PI / 2, 0),
-    "right",
-    true,
+    "right"
   )
+  
 }
 
 function addLights() {
@@ -650,7 +708,7 @@ function setupExhibitSettings() {
   updateGalleryInfo() // setupExhibitSettings 끝날 때도 초기 갤러리 정보 업데이트
 
   // ****************개발 모드****************
-  const isDevMode = false // 출시할 때는 반드시 false로 바꾸기!!!!!!!!!!!!!!
+  const isDevMode = true // 출시할 때는 반드시 false로 바꾸기!!!!!!!!!!!!!!
 }
 
 function checkExhibitPeriod() {
@@ -839,14 +897,14 @@ function initApp() {
   init().then(() => {
     // ✅ scene, walls 다 준비된 후 텍스처 적용
     if (confirmedTextureSet) {
-      applyPreviewTextureSet(confirmedTextureSet);
+      applyPreviewTextureSet(confirmedTextureSet)
     }
 
     // 이 시점에 나머지 UI 설정 시작
-    setupExhibitSettings();
-    checkExhibitPeriod();
-    updateGalleryInfo();
-  });
+    setupExhibitSettings()
+    checkExhibitPeriod()
+    updateGalleryInfo()
+  })
 }
 
 function highlightSelectedOption(selected) {
@@ -870,6 +928,86 @@ document
     localStorage.setItem("selectedTextureSet", selectedTextureSet)
   })
 
+function populatePaintingGrid() {
+  const grid = document.getElementById("paintingGrid")
+  if (!grid) return
+
+  grid.innerHTML = "" // 기존 내용 초기화
+
+  paintingsData.forEach((painting, index) => {
+    const thumb = document.createElement("img")
+    thumb.src = `https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/paintings/${painting.filename}`
+    thumb.alt = painting.title
+    thumb.draggable = true
+    thumb.dataset.index = index // 나중에 어떤 그림인지 알기 위해 index 저장
+    thumb.classList.add("thumbnail")
+
+    // 드래그 시작
+    thumb.addEventListener("dragstart", (e) => {
+      e.dataTransfer.setData("paintingIndex", index)
+    })
+
+    grid.appendChild(thumb)
+  })
+}
+
+let currentWall = "front" // 초기값
+const wallNames = ["front", "right", "back", "left"]
+
+document.getElementById("wallLeftButton").addEventListener("click", () => {
+  const idx = wallNames.indexOf(currentWall)
+  const newIdx = (idx - 1 + wallNames.length) % wallNames.length
+  currentWall = wallNames[newIdx]
+  updateWallView()
+})
+
+document.getElementById("wallRightButton").addEventListener("click", () => {
+  const idx = wallNames.indexOf(currentWall)
+  const newIdx = (idx + 1) % wallNames.length
+  currentWall = wallNames[newIdx]
+  updateWallView()
+})
+
+function updateWallView() {
+  const label = document.getElementById("currentWallLabel")
+  label.textContent = currentWall.charAt(0).toUpperCase() + currentWall.slice(1)
+
+  // 카메라 시점 고정
+  let pos = new THREE.Vector3()
+  let look = new THREE.Vector3(0, PAINTING_Y_OFFSET, 0)
+  switch (currentWall) {
+    case "front":
+      pos.set(0, PAINTING_Y_OFFSET, -ROOM_DEPTH)
+      break
+    case "right":
+      pos.set(ROOM_WIDTH, PAINTING_Y_OFFSET, 0)
+      break
+    case "back":
+      pos.set(0, PAINTING_Y_OFFSET, ROOM_DEPTH)
+      break
+    case "left":
+      pos.set(-ROOM_WIDTH, PAINTING_Y_OFFSET, 0)
+      break
+  }
+
+  new TWEEN.Tween(camera.position)
+    .to(pos, 600)
+    .easing(TWEEN.Easing.Cubic.InOut)
+    .onUpdate(()  => {
+      camera.lookAt(controls.target);
+    })
+    .start()
+
+  new TWEEN.Tween(controls.target)
+    .to(look, 600)
+    .easing(TWEEN.Easing.Cubic.InOut)
+    .onUpdate(() => {
+      controls.update();
+      camera.lookAt(controls.target);
+    })
+    .start()
+}
+
 window.onload = initApp
 
 console.log(document.getElementById("settingsSlider"))
@@ -886,4 +1024,8 @@ window.showPanel = function (panelId) {
     panel.classList.remove("active")
   })
   document.getElementById(panelId).classList.add("active")
+
+  if (panelId === "panel-paintings") {
+    populatePaintingGrid() // 썸네일 표시
+  }
 }
