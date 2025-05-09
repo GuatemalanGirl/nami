@@ -295,7 +295,7 @@ button.settings-icon:hover {
   opacity: 0.7;
   cursor: pointer;
   word-break: keep-all; /* ✅ 줄바꿈 이상 방지 */
-  white-space: nowrap;  /* ✅ 한 줄로 유지 */
+  white-space: nowrap; /* ✅ 한 줄로 유지 */
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -359,4 +359,55 @@ button.settings-icon:hover {
 
 .texture-option:hover {
   border: 2px solid #ff8b79;
+}
+
+.wall-nav {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.wall-nav button {
+  font-size: 20px;
+  padding: 10px 20px;
+  border-radius: 20px;
+  background-color: #5adbcc;
+  color: white;
+  border: none;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.wall-nav button:hover {
+  background-color: #ff8b79;
+  opacity: 1;
+}
+
+#currentWallLabel {
+  font-size: 22px;
+  font-weight: bold;
+  color: #333;
+}
+
+.painting-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.painting-grid img {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 10px;
+  cursor: grab;
+  transition: transform 0.3s ease;
+}
+
+.painting-grid img:active {
+  cursor: grabbing;
+  transform: scale(0.95);
 }
