@@ -1,6 +1,5 @@
 import * as THREE from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
-import { FunctionParameter } from "three/examples/jsm/transpiler/AST.js"
 import * as TWEEN from "tween"
 
 const paintingsData = [
