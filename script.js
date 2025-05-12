@@ -124,6 +124,11 @@ let isCameraMoving = false,
 let zoomedPainting = null // 현재 줌인된 그림을 저장할 변수
 let zoomLevel = 0 // 줌 레벨 (0: 초기, 1: 1차 줌, 2: 2차 줌)
 
+let isPaintingMode = false; // 설정창 "작품선택" 모드인지 여부
+let originalPaintings = []; // 이전 상태 저장용
+let tempPaintings = []; // 임시 배치 그림들
+
+
 const textureLoader = new THREE.TextureLoader()
 
 async function init() {
@@ -190,7 +195,9 @@ renderer.domElement.addEventListener("drop", (e) => {
       right: Math.PI / 2,
     }[currentWall];
 
-    loadAndAddPainting(paintingData, point, wallRotY);
+    loadAndAddPainting(paintingData, point, wallRotY).then((mesh) => {
+      tempPaintings.push(mesh); // 나중에 제거할 대상 추적
+    });
   } else {
     console.warn("No intersection with wall.");
   }
@@ -524,12 +531,20 @@ document.getElementById("settingsToggle").addEventListener("click", () => {
   const panel = document.getElementById("settingsPanel")
   const gear = document.getElementById("settingsToggle")
   const isOpen = panel.classList.contains("open")
+  const currentActive = document.querySelector(".settings-slide.active")
+  const currentId = currentActive?.id
 
   if (isOpen) {
+    if (currentId === "panel-paintings") {
+      cancelPaintingChanges(); // 작품선택 중이면 복원
+      updateWallView() // 시점 복원 (카메라 고정 해제)
+      controls.enabled = true; // 마우스 조작 복원
+    }
     restoreTextureSet()
     panel.classList.remove("open")
     gear.classList.remove("moving")
   } else {
+    showPanel("panel-main"); // 설정창 열 때 항상 메인 패널부터 시작
     panel.classList.add("open")
     gear.classList.add("moving")
   }
@@ -577,6 +592,7 @@ function zoomTo(painting, distance) {
 }
 
 function onClick(event) {
+  if (isPaintingMode) return; // 설정창 작품선택 시 클릭 차단
   if (isCameraMoving) return
   raycaster.setFromCamera(pointer, camera)
   const hits = raycaster.intersectObjects(paintings)
@@ -596,6 +612,7 @@ function onClick(event) {
 }
 
 function onDoubleClick(event) {
+  if (isPaintingMode) return; // 설정창 작품선택 시 클릭 차단
   if (!zoomedPainting || isCameraMoving) return
 
   if (zoomLevel === 1) {
@@ -666,7 +683,9 @@ function animate() {
   //camera.position.y = THREE.MathUtils.clamp(camera.position.y, 0.5, ROOM_HEIGHT - 1); // 바닥 밑이나 천장 뚫는 거 방지
   //camera.position.z = THREE.MathUtils.clamp(camera.position.z, -ROOM_DEPTH / 2 + 1, ROOM_DEPTH / 2 - 1);
 
-  controls.update()
+  if (!isPaintingMode) {
+    controls.update();
+  }
   renderer.render(scene, camera)
 }
 
@@ -948,6 +967,15 @@ function populatePaintingGrid() {
     })
 
     grid.appendChild(thumb)
+
+    document.getElementById("applyPainintgsButton").addEventListener("click", () => {
+      isPaintingMode = false;
+      controls.enabled = true;
+      originalPaintings = [...paintings]; // 확정
+      tempPaintings = [];
+      showPanel("panel-main"); // 설정 메인으로 복귀
+    });
+    
   })
 }
 
@@ -977,16 +1005,16 @@ function updateWallView() {
   let look = new THREE.Vector3(0, PAINTING_Y_OFFSET, 0)
   switch (currentWall) {
     case "front":
-      pos.set(0, PAINTING_Y_OFFSET, -ROOM_DEPTH)
+      pos.set(0, PAINTING_Y_OFFSET, -ROOM_DEPTH * 0.1)
       break
     case "right":
-      pos.set(ROOM_WIDTH, PAINTING_Y_OFFSET, 0)
+      pos.set(ROOM_WIDTH * 0.1, PAINTING_Y_OFFSET, 0)
       break
     case "back":
-      pos.set(0, PAINTING_Y_OFFSET, ROOM_DEPTH)
+      pos.set(0, PAINTING_Y_OFFSET, ROOM_DEPTH * 0.1)
       break
     case "left":
-      pos.set(-ROOM_WIDTH, PAINTING_Y_OFFSET, 0)
+      pos.set(-ROOM_WIDTH * 0.1, PAINTING_Y_OFFSET, 0)
       break
   }
 
@@ -1008,6 +1036,14 @@ function updateWallView() {
     .start()
 }
 
+function cancelPaintingChanges() {
+  for (let mesh of tempPaintings) {
+    scene.remove(mesh);
+    paintings.splice(paintings.indexOf(mesh), 1); // paintings에서도 제거
+  }
+  tempPaintings = [];
+}
+
 window.onload = initApp
 
 console.log(document.getElementById("settingsSlider"))
@@ -1020,12 +1056,28 @@ window.showPanel = function (panelId) {
     restoreTextureSet()
   }
 
-  document.querySelectorAll(".settings-slide").forEach((panel) => {
-    panel.classList.remove("active")
-  })
-  document.getElementById(panelId).classList.add("active")
+  if (currentId === "panel-paintings" && panelId === "panel-main") {
+    cancelPaintingChanges(); // <- 버튼으로 빠질 때 복원
+  }
 
   if (panelId === "panel-paintings") {
-    populatePaintingGrid() // 썸네일 표시
+    populatePaintingGrid();
+    isPaintingMode = true; // 작품 선택 모드 진입
+    controls.enabled = false; // 사용자 회전 비활성화
+    currentWall = "front"; // front부터 시작
+    updateWallView(); // 카메라 이동
+
+    //현재 상태 복사
+    originalPaintings = [...paintings];
+    tempPaintings = [];
+
+  } else {
+    isPaintingMode = false; // 작품 선택 모드 해제
+    controls.enabled = true;
   }
-}
+
+  document.querySelectorAll(".settings-slide").forEach((panel) => {
+    panel.classList.remove("active")
+  });
+  document.getElementById(panelId).classList.add("active")
+};
