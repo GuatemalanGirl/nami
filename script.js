@@ -1,5 +1,6 @@
 import * as THREE from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
+import { FunctionParameter } from "three/examples/jsm/transpiler/AST.js"
 import * as TWEEN from "tween"
 
 const paintingsData = [
@@ -124,10 +125,16 @@ let isCameraMoving = false,
 let zoomedPainting = null // 현재 줌인된 그림을 저장할 변수
 let zoomLevel = 0 // 줌 레벨 (0: 초기, 1: 1차 줌, 2: 2차 줌)
 
-let isPaintingMode = false; // 설정창 "작품선택" 모드인지 여부
-let originalPaintings = []; // 이전 상태 저장용
-let tempPaintings = []; // 임시 배치 그림들
+let isPaintingMode = false // 설정창 "작품선택" 모드인지 여부
+let originalPaintings = [] // 이전 상태 저장용
+let originalPaintingsState = [] // 작품선택 모드 진입 시 위치/회전 저장
+let tempPaintings = [] // 임시 배치 그림들
 
+let editingPainting = null
+let isEditingPainting = false
+let dragging = false
+
+let dragStartPos = null // 드래그 시작 시 위치 저장
 
 const textureLoader = new THREE.TextureLoader()
 
@@ -149,60 +156,61 @@ async function init() {
   document.body.appendChild(renderer.domElement)
 
   // 드래그 앤 드롭 이벤트 등록
-renderer.domElement.addEventListener("dragover", (e) => {
-  e.preventDefault(); // 기본 동작 방지
-});
+  renderer.domElement.addEventListener("dragover", (e) => {
+    e.preventDefault() // 기본 동작 방지
+  })
 
-renderer.domElement.addEventListener("drop", (e) => {
-  e.preventDefault();
-  const index = e.dataTransfer.getData("paintingIndex");
-  console.log("Dropped painting index:", index);
+  renderer.domElement.addEventListener("drop", (e) => {
+    e.preventDefault()
+    const index = e.dataTransfer.getData("paintingIndex")
+    console.log("Dropped painting index:", index)
 
-  if (index === "") {
-    console.warn("No index found");
-    return;
-  }
+    if (index === "") {
+      console.warn("No index found")
+      return
+    }
 
-  const paintingData = paintingsData[index];
-  console.log("Painting data:", paintingData);
+    const paintingData = paintingsData[index]
+    console.log("Painting data:", paintingData)
 
-  const rect = renderer.domElement.getBoundingClientRect();
-  const mouse = new THREE.Vector2(
-    ((e.clientX - rect.left) / rect.width) * 2 - 1,
-    -((e.clientY - rect.top) / rect.height) * 2 + 1
-  );
+    const rect = renderer.domElement.getBoundingClientRect()
+    const mouse = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1,
+    )
 
-  raycaster.setFromCamera(mouse, camera);
+    raycaster.setFromCamera(mouse, camera)
 
-  const wallMesh = scene.getObjectByName(currentWall);
-  if (!wallMesh) {
-    console.warn("Wall not found:", currentWall);
-    return;
-  }
+    const wallMesh = scene.getObjectByName(currentWall)
+    if (!wallMesh) {
+      console.warn("Wall not found:", currentWall)
+      return
+    }
 
-  const intersects = raycaster.intersectObject(wallMesh);
-  console.log("Intersects:", intersects);
+    const intersects = raycaster.intersectObject(wallMesh)
+    console.log("Intersects:", intersects)
 
-  if (intersects.length > 0) {
-    const point = intersects[0].point.clone();
-    const normal = intersects[0].face.normal.clone().transformDirection(wallMesh.matrixWorld);
-    point.add(normal.multiplyScalar(0.05));
+    if (intersects.length > 0) {
+      const point = intersects[0].point.clone()
+      const normal = intersects[0].face.normal
+        .clone()
+        .transformDirection(wallMesh.matrixWorld)
+      point.add(normal.multiplyScalar(0.05))
 
-    const wallRotY = {
-      front: Math.PI,
-      back: 0,
-      left: -Math.PI / 2,
-      right: Math.PI / 2,
-    }[currentWall];
+      const wallRotY = {
+        front: Math.PI,
+        back: 0,
+        left: -Math.PI / 2,
+        right: Math.PI / 2,
+      }[currentWall]
 
-    loadAndAddPainting(paintingData, point, wallRotY).then((mesh) => {
-      tempPaintings.push(mesh); // 나중에 제거할 대상 추적
-    });
-  } else {
-    console.warn("No intersection with wall.");
-  }
-});
-
+      loadAndAddPainting(paintingData, point, wallRotY).then((mesh) => {
+        tempPaintings.push(mesh) // 나중에 제거할 대상 추적
+      })
+    } else {
+      console.warn("No intersection with wall.")
+    }
+  })
 
   controls = new OrbitControls(camera, renderer.domElement)
   controls.target.set(0, PAINTING_Y_OFFSET, 0)
@@ -252,7 +260,98 @@ renderer.domElement.addEventListener("drop", (e) => {
     .addEventListener("click", closeInfo)
   renderer.domElement.addEventListener("click", onClick)
 
+  // 작품선택모드 에서 클릭 시 개별 그림 편집 시작 (더블클릭 핸들링)
+  renderer.domElement.addEventListener("click", (event) => {
+    if (!isPaintingMode) return
+
+    raycaster.setFromCamera(pointer, camera)
+    const hits = raycaster.intersectObjects(paintings)
+
+    if (hits.length > 0) {
+      const mesh = hits[0].object
+
+      if (editingPainting && editingPainting !== mesh) {
+        endEditingPainting() // 이전 그림 편집 종료
+      }
+
+      if (editingPainting !== mesh) {
+        startEditingPainting(mesh) // 새 그림 편집 시작
+      }
+
+      // ✅ 선택과 동시에 바로 드래그 시작!
+      if (isEditingPainting && editingPainting) {
+        dragging = true
+        dragStartPos = editingPainting.position.clone()
+      }
+    }
+  })
+
   renderer.domElement.addEventListener("dblclick", onDoubleClick)
+
+  // 마우스 드래그로 그림 위치 이동
+  renderer.domElement.addEventListener("pointerdown", (e) => {
+    if (!isPaintingMode) return
+
+    raycaster.setFromCamera(pointer, camera)
+    const hits = raycaster.intersectObjects(paintings)
+
+    if (hits.length > 0) {
+      const mesh = hits[0].object
+
+      if (editingPainting && editingPainting !== mesh) {
+        endEditingPainting()
+      }
+
+      // 선택
+      if (editingPainting !== mesh) {
+        startEditingPainting(mesh)
+      }
+
+      // 선택된 그림이면 바로 드래그 시작
+      if (editingPainting) {
+        dragging = true
+        dragStartPos = editingPainting.position.clone()
+      }
+    }
+  })
+
+  renderer.domElement.addEventListener("pointerup", (e) => {
+    selectedPainting = null
+  })
+
+  let selectedPainting = null
+
+  renderer.domElement.addEventListener("pointermove", (e) => {
+    if (!isPaintingMode || !e.buttons) return // 마우스 누르고 있을 때만
+
+    const rect = renderer.domElement.getBoundingClientRect()
+    const mouse = new THREE.Vector2(
+      ((e.clientX - rect.left) / rect.width) * 2 - 1,
+      -((e.clientY - rect.top) / rect.height) * 2 + 1,
+    )
+
+    raycaster.setFromCamera(mouse, camera)
+
+    if (!selectedPainting) {
+      const hits = raycaster.intersectObjects(paintings)
+      if (hits.length > 0) {
+        selectedPainting = hits[0].object
+      }
+    }
+
+    if (selectedPainting) {
+      const wallMesh = scene.getObjectByName(currentWall)
+      const intersects = raycaster.intersectObject(wallMesh)
+      if (intersects.length > 0) {
+        const point = intersects[0].point.clone()
+        const normal = intersects[0].face.normal
+          .clone()
+          .transformDirection(wallMesh.matrixWorld)
+        point.add(normal.multiplyScalar(0.05))
+        selectedPainting.position.copy(point)
+      }
+    }
+  })
 
   renderer.domElement.addEventListener(
     "touchend",
@@ -271,6 +370,13 @@ renderer.domElement.addEventListener("drop", (e) => {
 
   renderer.domElement.addEventListener("mousemove", onPointerMove)
   window.addEventListener("resize", onResize)
+
+  // esc키로 편집 종료
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && isEditingPainting) {
+      endEditingPainting()
+    }
+  })
 
   animate()
 }
@@ -348,34 +454,33 @@ function createRoom() {
     new THREE.Vector3(0, PAINTING_Y_OFFSET, ROOM_DEPTH / 2),
     new THREE.Euler(0, 0, 0), // 회전은 그대로
     "front",
-    true // ✅ 법선 뒤집기
+    true, // ✅ 법선 뒤집기
   )
-  
+
   makeWall(
     new THREE.PlaneGeometry(ROOM_WIDTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.back }),
     new THREE.Vector3(0, PAINTING_Y_OFFSET, -ROOM_DEPTH / 2),
     new THREE.Euler(0, 0, 0),
-    "back"
+    "back",
   )
-  
+
   makeWall(
     new THREE.PlaneGeometry(ROOM_DEPTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.left }),
     new THREE.Vector3(ROOM_WIDTH / 2, PAINTING_Y_OFFSET, 0),
     new THREE.Euler(0, Math.PI / 2, 0),
     "left",
-    true // ✅ 실내를 보도록 뒤집기
+    true, // ✅ 실내를 보도록 뒤집기
   )
-  
+
   makeWall(
     new THREE.PlaneGeometry(ROOM_DEPTH, ROOM_HEIGHT),
     new THREE.MeshStandardMaterial({ map: textures.right }),
     new THREE.Vector3(-ROOM_WIDTH / 2, PAINTING_Y_OFFSET, 0),
     new THREE.Euler(0, Math.PI / 2, 0),
-    "right"
+    "right",
   )
-  
 }
 
 function addLights() {
@@ -536,15 +641,16 @@ document.getElementById("settingsToggle").addEventListener("click", () => {
 
   if (isOpen) {
     if (currentId === "panel-paintings") {
-      cancelPaintingChanges(); // 작품선택 중이면 복원
+      cancelPaintingChanges() // 작품선택 중이면 복원
       updateWallView() // 시점 복원 (카메라 고정 해제)
-      controls.enabled = true; // 마우스 조작 복원
+      controls.enabled = true // 마우스 조작 복원
+      endEditingPainting() // 작품선택(배치)모드 종료
     }
     restoreTextureSet()
     panel.classList.remove("open")
     gear.classList.remove("moving")
   } else {
-    showPanel("panel-main"); // 설정창 열 때 항상 메인 패널부터 시작
+    showPanel("panel-main") // 설정창 열 때 항상 메인 패널부터 시작
     panel.classList.add("open")
     gear.classList.add("moving")
   }
@@ -592,7 +698,7 @@ function zoomTo(painting, distance) {
 }
 
 function onClick(event) {
-  if (isPaintingMode) return; // 설정창 작품선택 시 클릭 차단
+  if (isPaintingMode) return // 설정창 작품선택 시 클릭 차단
   if (isCameraMoving) return
   raycaster.setFromCamera(pointer, camera)
   const hits = raycaster.intersectObjects(paintings)
@@ -612,7 +718,7 @@ function onClick(event) {
 }
 
 function onDoubleClick(event) {
-  if (isPaintingMode) return; // 설정창 작품선택 시 클릭 차단
+  if (isPaintingMode) return // 설정창 작품선택 시 클릭 차단
   if (!zoomedPainting || isCameraMoving) return
 
   if (zoomLevel === 1) {
@@ -684,7 +790,7 @@ function animate() {
   //camera.position.z = THREE.MathUtils.clamp(camera.position.z, -ROOM_DEPTH / 2 + 1, ROOM_DEPTH / 2 - 1);
 
   if (!isPaintingMode) {
-    controls.update();
+    controls.update()
   }
   renderer.render(scene, camera)
 }
@@ -968,14 +1074,21 @@ function populatePaintingGrid() {
 
     grid.appendChild(thumb)
 
-    document.getElementById("applyPainintgsButton").addEventListener("click", () => {
-      isPaintingMode = false;
-      controls.enabled = true;
-      originalPaintings = [...paintings]; // 확정
-      tempPaintings = [];
-      showPanel("panel-main"); // 설정 메인으로 복귀
-    });
-    
+    document
+      .getElementById("applyPainintgsButton")
+      .addEventListener("click", () => {
+        isPaintingMode = false
+        controls.enabled = true
+        originalPaintings = [...paintings] // 확정
+        // 현재 위치를 확정 저장
+        originalPaintingsState = paintings.map((mesh) => ({
+          mesh: mesh,
+          position: mesh.position.clone(),
+          rotation: mesh.rotation.clone(),
+        }))
+        tempPaintings = []
+        showPanel("panel-main") // 설정 메인으로 복귀
+      })
   })
 }
 
@@ -1021,8 +1134,8 @@ function updateWallView() {
   new TWEEN.Tween(camera.position)
     .to(pos, 600)
     .easing(TWEEN.Easing.Cubic.InOut)
-    .onUpdate(()  => {
-      camera.lookAt(controls.target);
+    .onUpdate(() => {
+      camera.lookAt(controls.target)
     })
     .start()
 
@@ -1030,18 +1143,38 @@ function updateWallView() {
     .to(look, 600)
     .easing(TWEEN.Easing.Cubic.InOut)
     .onUpdate(() => {
-      controls.update();
-      camera.lookAt(controls.target);
+      controls.update()
+      camera.lookAt(controls.target)
     })
     .start()
 }
 
 function cancelPaintingChanges() {
   for (let mesh of tempPaintings) {
-    scene.remove(mesh);
-    paintings.splice(paintings.indexOf(mesh), 1); // paintings에서도 제거
+    scene.remove(mesh)
+    paintings.splice(paintings.indexOf(mesh), 1) // paintings에서도 제거
   }
-  tempPaintings = [];
+  tempPaintings = []
+
+  // 기존 그림 위치 복원
+  originalPaintingsState.forEach(({ mesh, position, rotation }) => {
+    mesh.position.copy(position)
+    mesh.rotation.copy(rotation)
+  })
+}
+
+// 편집 시작/종료 함수
+function startEditingPainting(mesh) {
+  editingPainting = mesh
+  isEditingPainting = true
+}
+
+function endEditingPainting() {
+  if (editingPainting) {
+  }
+  editingPainting = null
+  isEditingPainting = false
+  dragging = false
 }
 
 window.onload = initApp
@@ -1057,27 +1190,34 @@ window.showPanel = function (panelId) {
   }
 
   if (currentId === "panel-paintings" && panelId === "panel-main") {
-    cancelPaintingChanges(); // <- 버튼으로 빠질 때 복원
+    cancelPaintingChanges() // <- 버튼으로 빠질 때 복원
+    endEditingPainting() // 작품선택(배치)모드 종료
   }
 
   if (panelId === "panel-paintings") {
-    populatePaintingGrid();
-    isPaintingMode = true; // 작품 선택 모드 진입
-    controls.enabled = false; // 사용자 회전 비활성화
-    currentWall = "front"; // front부터 시작
-    updateWallView(); // 카메라 이동
+    populatePaintingGrid()
+    isPaintingMode = true // 작품선택모드 진입
+    controls.enabled = false // 사용자 회전 비활성화
+    currentWall = "front" // front부터 시작
+    updateWallView() // 카메라 이동
 
     //현재 상태 복사
-    originalPaintings = [...paintings];
-    tempPaintings = [];
+    originalPaintings = [...paintings]
+    tempPaintings = []
 
+    // 현재 그림 상태 저장
+    originalPaintingsState = paintings.map((mesh) => ({
+      mesh: mesh,
+      position: mesh.position.clone(),
+      rotation: mesh.rotation.clone(),
+    }))
   } else {
-    isPaintingMode = false; // 작품 선택 모드 해제
-    controls.enabled = true;
+    isPaintingMode = false // 작품 선택 모드 해제
+    controls.enabled = true
   }
 
   document.querySelectorAll(".settings-slide").forEach((panel) => {
     panel.classList.remove("active")
-  });
+  })
   document.getElementById(panelId).classList.add("active")
-};
+}
