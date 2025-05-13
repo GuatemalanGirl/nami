@@ -72,6 +72,13 @@ button:hover {
   display: flex;
   gap: 10px;
   z-index: 1;
+
+  transition: transform 0.4s ease;
+}
+
+.nav-buttons.slide-down {
+  transform: translate(-50%, 100px); /* 아래로 100x 이동 */
+  pointer-events: none; /* 클릭 방지 */
 }
 
 #infoModal {
@@ -327,7 +334,7 @@ button.settings-icon:hover {
 
 #galleryInfo .period {
   font-size: 20px;
-  color: #555;
+  color: #000000;
 }
 
 .background-grid {
