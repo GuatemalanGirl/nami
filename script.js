@@ -277,7 +277,7 @@ async function init() {
         startEditingPainting(mesh) // 새 그림 편집 시작
       }
 
-      // ✅ 선택과 동시에 바로 드래그 시작!
+      // 선택과 동시에 바로 드래그 시작!
       if (isEditingPainting && editingPainting) {
         dragging = true
         dragStartPos = editingPainting.position.clone()
@@ -453,7 +453,7 @@ function createRoom() {
     new THREE.Vector3(0, PAINTING_Y_OFFSET, ROOM_DEPTH / 2),
     new THREE.Euler(0, 0, 0), // 회전은 그대로
     "front",
-    true, // ✅ 법선 뒤집기
+    true, // 법선 뒤집기
   )
 
   makeWall(
@@ -470,7 +470,7 @@ function createRoom() {
     new THREE.Vector3(ROOM_WIDTH / 2, PAINTING_Y_OFFSET, 0),
     new THREE.Euler(0, Math.PI / 2, 0),
     "left",
-    true, // ✅ 실내를 보도록 뒤집기
+    true, // 실내를 보도록 뒤집기
   )
 
   makeWall(
@@ -971,11 +971,11 @@ function applyPreviewTextureSet(setName) {
   const floor = textureLoader.load(set.floor)
   const ceiling = textureLoader.load(set.ceiling)
   const walls = textureLoader.load(set.walls)
-  updateRoomTextures(floor, ceiling, walls) // ✅ 즉시 반영
+  updateRoomTextures(floor, ceiling, walls) // 즉시 반영
 }
 
 function applyTextureSet(setName) {
-  confirmedTextureSet = setName // ✅ 진짜 확정
+  confirmedTextureSet = setName // 진짜 확정
   selectedTextureSet = setName
   localStorage.setItem("selectedTextureSet", setName)
   applyPreviewTextureSet(setName)
@@ -1019,7 +1019,7 @@ function initApp() {
 
   // Three.js 초기화 (async 버전으로)
   init().then(() => {
-    // ✅ scene, walls 다 준비된 후 텍스처 적용
+    // scene, walls 다 준비된 후 텍스처 적용
     if (confirmedTextureSet) {
       applyPreviewTextureSet(confirmedTextureSet)
     }
@@ -1086,6 +1086,7 @@ function populatePaintingGrid() {
           rotation: mesh.rotation.clone(),
         }))
         tempPaintings = []
+        updatePaintingOrderByPosition() // 확인 버튼 클릭 시 순서 재정렬
         showPanel("panel-main") // 설정 메인으로 복귀
       })
   })
@@ -1176,6 +1177,41 @@ function endEditingPainting() {
   dragging = false
 }
 
+function updatePaintingOrderByPosition() {
+  const wallOrder = ["front", "left", "back", "right"] // 반대로 돌아서 left, right 순서 변경
+  const wallSortingFns = {
+    front: (a, b) => a.position.x - b.position.x,
+    back: (a, b) => b.position.x - a.position.x,
+    left: (a, b) => b.position.z - a.position.z,
+    right: (a, b) => a.position.z - b.position.z,
+  }
+
+  paintings.sort((a, b) => {
+    const aWall = detectWall(a)
+    const bWall = detectWall(b)
+
+    const aIdx = wallOrder.indexOf(aWall)
+    const bIdx = wallOrder.indexOf(bWall)
+
+    if (aIdx !== bIdx) return aIdx - bIdx
+
+    // 같은 벽에 있으면 좌우 순서대로 정렬
+    return wallSortingFns[aWall]?.(a, b) || 0
+  })
+}
+
+function detectWall(mesh) {
+  const z = mesh.position.z
+  const x = mesh.position.x
+  const eps = 0.2 // 오차 허용
+
+  if (Math.abs(z - ROOM_DEPTH / 2) < eps) return "front"
+  if (Math.abs(z + ROOM_DEPTH / 2) < eps) return "back"
+  if (Math.abs(x - ROOM_WIDTH / 2) < eps) return "left"
+  if (Math.abs(x + ROOM_WIDTH / 2) < eps) return "right"
+  return "unknown"
+}
+
 window.onload = initApp
 
 console.log(document.getElementById("settingsSlider"))
@@ -1199,6 +1235,7 @@ window.showPanel = function (panelId) {
     controls.enabled = false // 사용자 회전 비활성화
     currentWall = "front" // front부터 시작
     updateWallView() // 카메라 이동
+    document.getElementById("navButtons").classList.add("slide-down"); // 하단 버튼 숨기기
 
     //현재 상태 복사
     originalPaintings = [...paintings]
@@ -1212,7 +1249,8 @@ window.showPanel = function (panelId) {
     }))
   } else {
     isPaintingMode = false // 작품 선택 모드 해제
-    controls.enabled = true
+    controls.enabled = true;
+    document.getElementById("navButtons").classList.remove("slide-down"); // 하단 버튼 다시 표시
   }
 
   document.querySelectorAll(".settings-slide").forEach((panel) => {
