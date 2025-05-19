@@ -717,7 +717,26 @@ function onClick(event) {
 }
 
 function onDoubleClick(event) {
-  if (isPaintingMode) return // 설정창 작품선택 시 클릭 차단
+ 
+  // 마우스 위치 계산
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+  raycaster.setFromCamera(pointer, camera);
+  const intersects = raycaster.intersectObjects(paintings);
+
+  if (intersects.length > 0) {
+    const mesh = intersects[0].object;
+
+    if (isPaintingMode) {
+      // 작품선택모드 시 크기 조절 허용
+      console.log("Scaling", mesh.userData.data.title);
+      handleScaleCycle(mesh); // 더블클릭으로 크기 순환
+      return; // 줌 관련 로직은 실행 안함
+    }
+  }
+
   if (!zoomedPainting || isCameraMoving) return
 
   if (zoomLevel === 1) {
@@ -1074,7 +1093,7 @@ function populatePaintingGrid() {
     grid.appendChild(thumb)
 
     document
-      .getElementById("applyPainintgsButton")
+      .getElementById("applyPaintingsButton")
       .addEventListener("click", () => {
         isPaintingMode = false
         controls.enabled = true
@@ -1084,6 +1103,7 @@ function populatePaintingGrid() {
           mesh: mesh,
           position: mesh.position.clone(),
           rotation: mesh.rotation.clone(),
+          scale: mesh.scale.clone(),
         }))
         tempPaintings = []
         updatePaintingOrderByPosition() // 확인 버튼 클릭 시 순서 재정렬
@@ -1160,6 +1180,9 @@ function cancelPaintingChanges() {
   originalPaintingsState.forEach(({ mesh, position, rotation }) => {
     mesh.position.copy(position)
     mesh.rotation.copy(rotation)
+    if (mesh.userData.originalScale) {
+      mesh.scale.copy(mesh.userData.originalScale); // 크기 조절 복원
+    }
   })
 }
 
@@ -1210,6 +1233,29 @@ function detectWall(mesh) {
   if (Math.abs(x - ROOM_WIDTH / 2) < eps) return "left"
   if (Math.abs(x + ROOM_WIDTH / 2) < eps) return "right"
   return "unknown"
+}
+
+function handleScaleCycle(painting) {
+  if (painting.userData.sizeStep === undefined) {
+    painting.userData.sizeStep = 0;
+    painting.userData.originalScale = painting.scale.clone();
+  }
+
+  const scaleSteps = [1, 1.5, 2, 1.5, 1];
+  painting.userData.sizeStep = (painting.userData.sizeStep + 1) % scaleSteps.length;
+  const factor = scaleSteps[painting.userData.sizeStep];
+
+  const base = painting.userData.originalScale;
+  const targetScale = base.clone().multiplyScalar(factor);
+  
+  // 크기 변경 애니메이션
+  new TWEEN.Tween(painting.scale)
+    .to(
+      { x: targetScale.x, y: targetScale.y, z: targetScale.z },
+      200 // 지속 시간(ms)
+    )
+    .easing(TWEEN.Easing.Quadratic.Out)
+    .start();
 }
 
 window.onload = initApp
