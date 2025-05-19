@@ -292,6 +292,7 @@ async function init() {
     if (!isPaintingMode) return
 
     raycaster.setFromCamera(pointer, camera)
+    const targetPaintings = paintings.filter((painting) => detectWall(painting) === currentWall);
     const hits = raycaster.intersectObjects(paintings)
 
     if (hits.length > 0) {
@@ -644,6 +645,8 @@ document.getElementById("settingsToggle").addEventListener("click", () => {
       updateWallView() // 시점 복원 (카메라 고정 해제)
       controls.enabled = true // 마우스 조작 복원
       endEditingPainting() // 작품선택(배치)모드 종료
+      isPaintingMode = false // 명시적으로 모드 비활성화
+      document.getElementById("navButtons").classList.remove("slide-down"); // 하단 버튼
     }
     restoreTextureSet()
     panel.classList.remove("open")
@@ -717,34 +720,40 @@ function onClick(event) {
 }
 
 function onDoubleClick(event) {
- 
   // 마우스 위치 계산
   const rect = renderer.domElement.getBoundingClientRect();
   pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
   raycaster.setFromCamera(pointer, camera);
-  const intersects = raycaster.intersectObjects(paintings);
+
+  // 작품 선택 모드일 때 현재 벽면의 그림만 대상으로
+  let targetPaintings = paintings;
+  if (isPaintingMode) {
+    targetPaintings = paintings.filter((painting) => detectWall(painting) === currentWall);
+  }
+
+  const intersects = raycaster.intersectObjects(targetPaintings);
 
   if (intersects.length > 0) {
     const mesh = intersects[0].object;
 
     if (isPaintingMode) {
       // 작품선택모드 시 크기 조절 허용
-      console.log("Scaling", mesh.userData.data.title);
+      console.log("Scaling", mesh.userData.data.title, "on wall", detectWall(mesh));
       handleScaleCycle(mesh); // 더블클릭으로 크기 순환
       return; // 줌 관련 로직은 실행 안함
     }
   }
 
-  if (!zoomedPainting || isCameraMoving) return
+  if (!zoomedPainting || isCameraMoving) return;
 
   if (zoomLevel === 1) {
-    zoomTo(zoomedPainting, ZOOM_DISTANCE_CLOSER) // 2차 줌
-    zoomLevel = 2
+    zoomTo(zoomedPainting, ZOOM_DISTANCE_CLOSER); // 2차 줌
+    zoomLevel = 2;
   } else if (zoomLevel === 2) {
-    zoomTo(zoomedPainting, ZOOM_DISTANCE) // 다시 1차 줌으로
-    zoomLevel = 1
+    zoomTo(zoomedPainting, ZOOM_DISTANCE); // 다시 1차 줌으로
+    zoomLevel = 1;
   }
 }
 
@@ -1197,7 +1206,7 @@ function endEditingPainting() {
   }
   editingPainting = null
   isEditingPainting = false
-  dragging = false
+  dragging = false // 명시적 초기화
 }
 
 function updatePaintingOrderByPosition() {
