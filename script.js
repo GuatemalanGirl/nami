@@ -124,10 +124,13 @@ let isCameraMoving = false,
 let zoomedPainting = null // 현재 줌인된 그림을 저장할 변수
 let zoomLevel = 0 // 줌 레벨 (0: 초기, 1: 1차 줌, 2: 2차 줌)
 
+
 let isPaintingMode = false // 설정창 "작품선택" 모드인지 여부
 let originalPaintings = [] // 이전 상태 저장용
 let originalPaintingsState = [] // 작품선택 모드 진입 시 위치/회전 저장
 let tempPaintings = [] // 임시 배치 그림들
+
+let selectedPainting = null
 
 let editingPainting = null
 let isEditingPainting = false
@@ -197,6 +200,25 @@ async function init() {
         .clone()
         .transformDirection(wallMesh.matrixWorld)
       point.add(normal.multiplyScalar(0.05))
+
+      // 임시 그림을 만들기 전에 벽 안으로 제한
+      const halfW = ROOM_WIDTH / 2;
+      const halfH = ROOM_HEIGHT / 2;
+      const halfD = ROOM_DEPTH / 2;
+      const margin = 1; // 최소 여백
+
+      switch (currentWall) {
+        case "front":
+        case "back":
+          point.x = THREE.MathUtils.clamp(point.x, -halfW + margin, halfW - margin);
+          point.y = THREE.MathUtils.clamp(point.y, -halfH + margin, halfH - margin);
+          break;
+        case "left":
+        case "right":
+          point.z = THREE.MathUtils.clamp(point.z, -halfD + margin, halfD - margin);
+          point.y = THREE.MathUtils.clamp(point.y, -halfH + margin, halfH - margin);
+          break;
+      }
 
       const wallRotY = {
         front: Math.PI,
@@ -321,8 +343,6 @@ async function init() {
     selectedPainting = null
   })
 
-  let selectedPainting = null
-
   renderer.domElement.addEventListener("pointermove", (e) => {
     if (!isPaintingMode || !e.buttons) return // 마우스 누르고 있을 때만
 
@@ -350,7 +370,35 @@ async function init() {
           .clone()
           .transformDirection(wallMesh.matrixWorld)
         point.add(normal.multiplyScalar(0.05))
-        selectedPainting.position.copy(point)
+        
+        const box = new THREE.Box3().setFromObject(selectedPainting);
+        const size = new THREE.Vector3();
+        box.getSize(size);
+
+        const halfW = ROOM_WIDTH / 2;
+        const halfH = ROOM_HEIGHT / 2;
+        const halfD = ROOM_DEPTH / 2;
+
+        const halfWidth = size.x / 2;
+        const halfHeight = size.y / 2;
+        const halfDepth = size.z / 2;
+
+        // 현재 벽면 기준 클램핑 포인트
+        switch (currentWall) {
+          case "front":
+          case "back":
+            point.x = THREE.MathUtils.clamp(point.x, -halfW + halfWidth, halfW - halfWidth);
+            point.y = THREE.MathUtils.clamp(point.y, -halfH + halfHeight, halfH - halfHeight);
+            break;
+          case "left":
+          case "right":
+            point.z = THREE.MathUtils.clamp(point.z, -halfD + halfDepth, halfD - halfDepth);
+            point.y = THREE.MathUtils.clamp(point.y, -halfH + halfHeight, halfH - halfHeight);
+            break;
+        }
+
+        selectedPainting.position.copy(point);
+
       }
     }
   })
@@ -1261,7 +1309,11 @@ function handleScaleCycle(painting) {
   const factor = scaleSteps[painting.userData.sizeStep];
 
   const base = painting.userData.originalScale;
-  const targetScale = base.clone().multiplyScalar(factor);
+  const targetScale = new THREE.Vector3(
+    base.x * factor,
+    base.y * factor,
+    base.z // z값은 그대로 유지
+  );
   
   // 크기 변경 애니메이션
   new TWEEN.Tween(painting.scale)
@@ -1271,6 +1323,38 @@ function handleScaleCycle(painting) {
     )
     .easing(TWEEN.Easing.Quadratic.Out)
     .start();
+
+  // 크기 조정 이후, 벽면 한계 내로 위치 재조정
+  setTimeout(() => {
+    const box = new THREE.Box3().setFromObject(painting);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+
+    const halfW = ROOM_WIDTH / 2;
+    const halfH = ROOM_HEIGHT / 2;
+    const halfD = ROOM_DEPTH / 2;
+
+    const halfWidth = size.x / 2;
+    const halfHeight = size.y / 2;
+    const halfDepth = size.z / 2;
+
+    let point = painting.position.clone();
+
+    switch (detectWall(painting)) {
+      case "front":
+      case "back":
+        point.x = THREE.MathUtils.clamp(point.x, -halfW + halfWidth, halfW - halfWidth);
+        point.y = THREE.MathUtils.clamp(point.y, -halfH + halfHeight, halfH - halfHeight);
+        break;
+      case "left":
+      case "right":
+        point.z = THREE.MathUtils.clamp(point.z, -halfD + halfDepth, halfD - halfDepth);
+        point.y = THREE.MathUtils.clamp(point.y, -halfH + halfHeight, halfH - halfHeight);
+        break;
+    }
+    painting.position.copy(point);
+  }, 210); // 애니메이션 끝나고 clamp (200ms + 약간의 여유)
+  
 }
 
 window.onload = initApp
