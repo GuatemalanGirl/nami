@@ -135,6 +135,8 @@ let dragging = false
 
 let dragStartPos = null // 드래그 시작 시 위치 저장
 
+let skipCancelPainting = false // 설정 패널 전환 시 복원 스킵할지 여부
+
 const textureLoader = new THREE.TextureLoader()
 
 async function init() {
@@ -1116,7 +1118,10 @@ function populatePaintingGrid() {
         }))
         tempPaintings = []
         updatePaintingOrderByPosition() // 확인 버튼 클릭 시 순서 재정렬
+        // 설정 패널 전환 시 복원 방지
+        skipCancelPainting = true
         showPanel("panel-main") // 설정 메인으로 복귀
+        skipCancelPainting = false
       })
   })
 }
@@ -1186,10 +1191,11 @@ function cancelPaintingChanges() {
   tempPaintings = []
 
   // 기존 그림 위치 복원
-  originalPaintingsState.forEach(({ mesh, position, rotation }) => {
+  originalPaintingsState.forEach(({ mesh, position, rotation, scale }) => {
     mesh.position.copy(position)
     mesh.rotation.copy(rotation)
-    if (mesh.userData.originalScale) {
+    if (scale) {mesh.scale.copy(scale);
+    } else if (mesh.userData.originalScale) {
       mesh.scale.copy(mesh.userData.originalScale); // 크기 조절 복원
     }
   })
@@ -1280,7 +1286,9 @@ window.showPanel = function (panelId) {
   }
 
   if (currentId === "panel-paintings" && panelId === "panel-main") {
+    if (!skipCancelPainting) {
     cancelPaintingChanges() // <- 버튼으로 빠질 때 복원
+    }
     endEditingPainting() // 작품선택(배치)모드 종료
   }
 
@@ -1301,6 +1309,7 @@ window.showPanel = function (panelId) {
       mesh: mesh,
       position: mesh.position.clone(),
       rotation: mesh.rotation.clone(),
+      scale: mesh.scale.clone(),
     }))
   } else {
     isPaintingMode = false // 작품 선택 모드 해제
