@@ -607,8 +607,8 @@ document.getElementById("settingsToggle").addEventListener("click", () => {
       endEditingPainting() // 작품선택(배치)모드 종료
       isPaintingMode = false // 명시적으로 모드 비활성화
       document.getElementById("navButtons").classList.remove("slide-down"); // 하단 버튼
+      restoreTextureSet()
     }
-    restoreTextureSet()
     panel.classList.remove("open")
     gear.classList.remove("moving")
   } else {
