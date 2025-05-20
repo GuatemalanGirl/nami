@@ -2,105 +2,6 @@ import * as THREE from "three"
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js"
 import * as TWEEN from "tween"
 
-const paintingsData = [
-  {
-    filename: "design_art.jpg",
-    title: "Design Art",
-    description:
-      "“그림이 말을 걸어온다…, Design? Art?!”<br>“ART(예술)라는 산에서 대중(우리)에게 내려온 디자인! 그리고 그림!”<br>현대 사회에서는 예술과 디자인의 경계가 점점 모호해지고 있습니다. 팝아트의 위대한 창시자 앤디 워홀은 일부 특권층만의 전유물로 여기던 예술(그림)을 우리 곁으로 끌어내리고, 평범한 대중들이여! 우리 모두 마음껏 예술을 즐기자고 외쳤지요. 앤디 워홀의 작품 주제는 대부분 우리와 매우 친숙한 인물이나 상품들입니다. 부드럽고 매혹적이며 아름답기 그지없는 아르누보 미술의 창시자 알폰스 무하는 화장품, 카페의 포스터 제작자로 그의 예술을 시작했습니다. 툴루즈 로트렉 역시, 파리의 유명한 댄스홀인 물랭루즈의 포스터 작가입니다. 라퐁텐느 우화집의 삽화 작가인 앙리 르마리와 현대 그래픽 아트의 대가인 레미 블랑샤르에 이르기까지… 무겁고 진지하며, 엄격함을 고수하던 전통적인 예술(그림)을 오로지 우리와 같이 평범한 대중들에게 <선물하기> 위해 애쓴 선각자들! 이들의 작품 속에서 평범하지만 아름답고, 쉽지만 철학적이며, 친숙하지만 즐거운 새로운 예술 세계를 경험하길 기대합니다.",
-  },
-  {
-    filename: "campbells_soup.jpg",
-    title: "Campbell's Soup",
-    description:
-      "이 작품은 당시 캠벨 회사에서 판매하는 32종류의 수프를 하나씩 옮겨 그린 것 중 하나입니다. 워홀은 슈퍼마켓 진열장에서 흔히 보던 상품의 이미지를 그대로 재현했습니다. 그리고 이 깡통 이미지를 반복적으로 나열하여 일상 속 소비제품의 이미지를 예술 작품으로 바꾸어 내는 시도를 한 것입니다. 그것은 워홀의  선언이었습니다.",
-  },
-  {
-    filename: "foundation_maeght.jpg",
-    title: "Foundation Maeght",
-    description:
-      "호앙 미로는 친하게 지내던 매그 부부가 운영하는 매그 아트재단에서 자신의 전시회 포스터를 석판화로 다수 제작하였습니다. 무엇보다 은유적이며 시적이고 상징적인 표현 양식으로 대표되는 그의 작품은 어린아이 같은 순수함과 유쾌하고 천진한 해학과 유머, 의식과 무의식을 넘나드는 꿈의 세계를 담고 있습니다.",
-  },
-  {
-    filename: "reve_de_viille_3.jpg",
-    title: "Rêve de Ville III",
-    description:
-      "추상 풍경화는 일상적인 풍경 속에 상상력이 창조한 기발한 추상적 요소가 가미된 특별한 장르입니다. 멀리서 보면 단순한 풍경화이지만, 한발 한발 다가갈수록 눈을 떼지 못하게 하는 묘한 매력을 가지고 있지요. 이 작품 시리즈는 아름다운 자연과 동심의 이미지를 결합하여 신선한 자극과 동화와 같은 재미있는 이야기들을 들려줍니다. 맑고 투명한 색상은 유쾌한 느낌을 샘솟게 하고, 곳곳에서 튀어나오는 의외의 이미지들은 숨은 그림 찾기 놀이처럼 우리를 몰입하게 만듭니다. 마치 재미있는 마법의 세계로 떠나게 하는 설레이는 여행 가이드 같습니다.",
-  },
-  {
-    filename: "diamond_dust_shoes.jpg",
-    title: "Diamond Dust Shoes",
-    description:
-      "이 작품은 워홀의 친구이자 패션 디자이너가 의뢰한 신발 광고가 모티브가 되었습니다. 그 친구는 워홀의 스튜디어에 샘플로 쓸 신발 한 상자를 보냈는데, 워홀 조수의 실수로 신발이 바닥에 쏟아지고 말았습니다. 이 작품은 바로 그 장면을 담은 것입니다.",
-  },
-  {
-    filename: "histoire_11.jpg",
-    title: "Histoire 11",
-    description:
-      "16점의 시리즈 작품인 <망각의 역사>는 레미 블랑샤르의 유년 시절, 그의 아버지로부터 들은 집시들의 이야기, 아라비안 나이트, 동서양 여러나라의 전설들을 그의 <순진한 표현>으로 재창조한 것입니다. 마치 만화와 같은 자유롭고, 순진하며 그리고 즉각적인 의미나 느낌을 전달합니다. 이 시리즈 작품은 우리의 상상력과 기억을 통로로 하여, 우리를 어린 시절로의 시간 여행을 떠나게 합니다.",
-  },
-  {
-    filename: "histoire_13.jpg",
-    title: "Histoire 13",
-    description:
-      "16점의 시리즈 작품인 <망각의 역사>는 레미 블랑샤르의 유년 시절, 그의 아버지로부터 들은 집시들의 이야기, 아라비안 나이트, 동서양 여러나라의 전설들을 그의 <순진한 표현>으로 재창조한 것입니다. 마치 만화와 같은 자유롭고, 순진하며 그리고 즉각적인 의미나 느낌을 전달합니다. 이 시리즈 작품은 우리의 상상력과 기억을 통로로 하여, 우리를 어린 시절로의 시간 여행을 떠나게 합니다.",
-  },
-  {
-    filename: "histoire_5.jpg",
-    title: "Histoire 5",
-    description:
-      "16점의 시리즈 작품인 <망각의 역사>는 레미 블랑샤르의 유년 시절, 그의 아버지로부터 들은 집시들의 이야기, 아라비안 나이트, 동서양 여러나라의 전설들을 그의 <순진한 표현>으로 재창조한 것입니다. 마치 만화와 같은 자유롭고, 순진하며 그리고 즉각적인 의미나 느낌을 전달합니다. 이 시리즈 작품은 우리의 상상력과 기억을 통로로 하여, 우리를 어린 시절로의 시간 여행을 떠나게 합니다.",
-  },
-  {
-    filename: "histoire_8.jpg",
-    title: "Histoire 8",
-    description:
-      "16점의 시리즈 작품인 <망각의 역사>는 레미 블랑샤르의 유년 시절, 그의 아버지로부터 들은 집시들의 이야기, 아라비안 나이트, 동서양 여러나라의 전설들을 그의 <순진한 표현>으로 재창조한 것입니다. 마치 만화와 같은 자유롭고, 순진하며 그리고 즉각적인 의미나 느낌을 전달합니다. 이 시리즈 작품은 우리의 상상력과 기억을 통로로 하여, 우리를 어린 시절로의 시간 여행을 떠나게 합니다.",
-  },
-  {
-    filename: "le_sarrasin.jpg",
-    title: "Le Sarrasin",
-    description:
-      "사라센은 고대 아라비아반도의 유목민을 뜻합니다. 그들에게 별은 위치를 일러주는 대단히 중요한 것이었지요. 유목민의 얼굴이 연상되는 검은색의 형태와 밝은 빨간색면, 노란색과 녹색면이 역동적인 즐거움을 전해줍니다.",
-  },
-  {
-    filename: "miro_ceret.jpg",
-    title: "Miró à Céret",
-    description:
-      "스페인이 자랑하는 화가 호앙 미로의 작품은 은유적이며 시적이고 상징적입니다. 어린아이 같은 순수함과 유쾌하고 천진한 해학과 유머, 의식과 무의식을 넘나드는 꿈의 세계를 담고 있습니다.",
-  },
-  /*{
-    filename: "reve_de_viille_3.jpg",
-    title: "Rêve de Ville III",
-    description:
-      "추상 풍경화는 일상적인 풍경 속에 상상력이 창조한 기발한 추상적 요소가 가미된 특별한 장르입니다. 멀리서 보면 단순한 풍경화이지만, 한발 한발 다가갈수록 눈을 떼지 못하게 하는 묘한 매력을 가지고 있지요. 이 작품 시리즈는 아름다운 자연과 동심의 이미지를 결합하여 신선한 자극과 동화와 같은 재미있는 이야기들을 들려줍니다. 맑고 투명한 색상은 유쾌한 느낌을 샘솟게 하고, 곳곳에서 튀어나오는 의외의 이미지들은 숨은 그림 찾기 놀이처럼 우리를 몰입하게 만듭니다. 마치 재미있는 마법의 세계로 떠나게 하는 설레이는 여행 가이드 같습니다.",
-  },
-  {
-    filename: "histoire_13.jpg",
-    title: "Histoire 13",
-    description:
-      "16점의 시리즈 작품인 <망각의 역사>는 레미 블랑샤르의 유년 시절, 그의 아버지로부터 들은 집시들의 이야기, 아라비안 나이트, 동서양 여러나라의 전설들을 그의 <순진한 표현>으로 재창조한 것입니다. 마치 만화와 같은 자유롭고, 순진하며 그리고 즉각적인 의미나 느낌을 전달합니다. 이 시리즈 작품은 우리의 상상력과 기억을 통로로 하여, 우리를 어린 시절로의 시간 여행을 떠나게 합니다.",
-  },
-  {
-    filename: "campbells_soup.jpg",
-    title: "Campbell's Soup",
-    description:
-      "이 작품은 당시 캠벨 회사에서 판매하는 32종류의 수프를 하나씩 옮겨 그린 것 중 하나입니다. 워홀은 슈퍼마켓 진열장에서 흔히 보던 상품의 이미지를 그대로 재현했습니다. 그리고 이 깡통 이미지를 반복적으로 나열하여 일상 속 소비제품의 이미지를 예술 작품으로 바꾸어 내는 시도를 한 것입니다. 그것은 워홀의  선언이었습니다.",
-  },
-  {
-    filename: "foundation_maeght.jpg",
-    title: "Foundation Maeght",
-    description:
-      "호앙 미로는 친하게 지내던 매그 부부가 운영하는 매그 아트재단에서 자신의 전시회 포스터를 석판화로 다수 제작하였습니다. 무엇보다 은유적이며 시적이고 상징적인 표현 양식으로 대표되는 그의 작품은 어린아이 같은 순수함과 유쾌하고 천진한 해학과 유머, 의식과 무의식을 넘나드는 꿈의 세계를 담고 있습니다.",
-  },
-  {
-    filename: "le_sarrasin.jpg",
-    title: "Le Sarrasin",
-    description:
-      "사라센은 고대 아라비아반도의 유목민을 뜻합니다. 그들에게 별은 위치를 일러주는 대단히 중요한 것이었지요. 유목민의 얼굴이 연상되는 검은색의 형태와 밝은 빨간색면, 노란색과 녹색면이 역동적인 즐거움을 전해줍니다.",
-  },*/
-]
-
 const ROOM_WIDTH = 20,
   ROOM_HEIGHT = 8,
   ROOM_DEPTH = 20
@@ -115,6 +16,8 @@ const PAINTING_WIDTH_LIMIT = ROOM_WIDTH / 4,
   PAINTING_HEIGHT_LIMIT = ROOM_HEIGHT / 3
 const PAINTING_Y_OFFSET = 0,
   WALL_OFFSET = 0.01
+
+let paintingsData = []; // 이제 외부에서 불러옴  
 
 let scene, camera, renderer, controls, raycaster, pointer
 let paintings = [],
@@ -139,6 +42,9 @@ let dragging = false
 let dragStartPos = null // 드래그 시작 시 위치 저장
 
 let skipCancelPainting = false // 설정 패널 전환 시 복원 스킵할지 여부
+
+let currentPage = 0;
+const itemsPerPage = 9;
 
 const textureLoader = new THREE.TextureLoader()
 
@@ -166,16 +72,20 @@ async function init() {
 
   renderer.domElement.addEventListener("drop", (e) => {
     e.preventDefault()
-    const index = e.dataTransfer.getData("paintingIndex")
-    console.log("Dropped painting index:", index)
-
-    if (index === "") {
-      console.warn("No index found")
+    const paintingRaw = e.dataTransfer.getData("painting")
+    if (!paintingRaw) {
+      console.warn("No painting data found")
       return
     }
 
-    const paintingData = paintingsData[index]
-    console.log("Painting data:", paintingData)
+    let paintingData;
+    try {
+      paintingData = JSON.parse(paintingRaw);
+    } catch (err) {
+      console.error("Invalid painting data:", err);
+      return;
+    }
+    console.log("Dropped painting:", paintingData);
 
     const rect = renderer.domElement.getBoundingClientRect()
     const mouse = new THREE.Vector2(
@@ -250,7 +160,7 @@ async function init() {
   const start = Date.now()
 
   createRoom()
-  await placePaintings()
+  // await placePaintings() // 작품 자동 배치
   addLights()
 
   const elapsed = Date.now() - start
@@ -1095,18 +1005,29 @@ function initApp() {
     selectedTextureSet = savedTextureSet
   }
 
-  // Three.js 초기화 (async 버전으로)
-  init().then(() => {
-    // scene, walls 다 준비된 후 텍스처 적용
-    if (confirmedTextureSet) {
-      applyPreviewTextureSet(confirmedTextureSet)
-    }
+  // ✅ paintingsData를 외부에서 불러오고, 이후 init 실행
+  fetch("https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/paintings/metadata.json")
+    .then((res) => res.json())
+    .then((data) => {
+      paintingsData = data;
 
-    // 이 시점에 나머지 UI 설정 시작
-    setupExhibitSettings()
-    checkExhibitPeriod()
-    updateGalleryInfo()
-  })
+      // Three.js 초기화 (async 버전으로)
+      init().then(() => {
+        // scene, walls 다 준비된 후 텍스처 적용
+        if (confirmedTextureSet) {
+          applyPreviewTextureSet(confirmedTextureSet)
+        }
+
+        // 이 시점에 나머지 UI 설정 시작
+        setupExhibitSettings()
+        checkExhibitPeriod()
+        updateGalleryInfo()
+      });
+    })
+    .catch((err) => {
+      alert("그림 정보를 불러오는 데 실패했습니다!");
+      console.error(err);
+    });
 }
 
 function highlightSelectedOption(selected) {
@@ -1136,17 +1057,23 @@ function populatePaintingGrid() {
 
   grid.innerHTML = "" // 기존 내용 초기화
 
-  paintingsData.forEach((painting, index) => {
+  const start = currentPage * itemsPerPage;
+  const end = start + itemsPerPage;
+  const currentItems = paintingsData.slice(start, end);
+
+  currentItems.forEach((painting, index) => {
+    const globalIndex = start + index; // globalIndex 계산
+
     const thumb = document.createElement("img")
     thumb.src = `https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/paintings/${painting.filename}`
     thumb.alt = painting.title
     thumb.draggable = true
-    thumb.dataset.index = index // 나중에 어떤 그림인지 알기 위해 index 저장
+    thumb.dataset.index = globalIndex; // 전체 인덱스 기준
     thumb.classList.add("thumbnail")
 
     // 드래그 시작
     thumb.addEventListener("dragstart", (e) => {
-      e.dataTransfer.setData("paintingIndex", index)
+      e.dataTransfer.setData("painting", JSON.stringify(painting)); // 객체 전체 전달
     })
 
     grid.appendChild(thumb)
@@ -1172,7 +1099,33 @@ function populatePaintingGrid() {
         skipCancelPainting = false
       })
   })
+  updatePageButtons();
 }
+
+document.getElementById("prevPageBtn").addEventListener("click", () => {
+  if (currentPage > 0) {
+    currentPage--;
+    populatePaintingGrid();
+  }
+});
+
+document.getElementById("nextPageBtn").addEventListener("click", () => {
+  const maxPage = Math.floor((paintingsData.length - 1) / itemsPerPage);
+  if (currentPage < maxPage) {
+    currentPage++;
+    populatePaintingGrid();
+  }
+});
+
+function updatePageButtons() {
+  const prev = document.getElementById("prevPageBtn");
+  const next = document.getElementById("nextPageBtn");
+  const maxPage = Math.floor((paintingsData.length - 1) / itemsPerPage);
+
+  prev.disabled = currentPage === 0;
+  next.disabled = currentPage >= maxPage;
+}
+
 
 let currentWall = "front" // 초기값
 const wallNames = ["front", "right", "back", "left"]
