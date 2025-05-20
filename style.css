@@ -418,3 +418,23 @@ button.settings-icon:hover {
   cursor: grabbing;
   transform: scale(0.95);
 }
+
+.grid-controls {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+  gap: 10px;
+}
+
+.grid-controls button {
+  background-color: #ffd3b6;
+  border: none;
+  padding: 8px 16px;
+  font-size: 20px;
+  cursor: pointer;
+  border-radius: 20px;
+}
+
+.grid-controls button:hover {
+  background-color: #ffb48f;
+}
