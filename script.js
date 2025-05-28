@@ -62,6 +62,7 @@ async function init() {
   camera.lookAt(0, PAINTING_Y_OFFSET, 0)
 
   renderer = new THREE.WebGLRenderer({ antialias: true })
+  renderer.setPixelRatio(window.devicePixelRatio) // 픽셀 비율 설정
   renderer.setSize(window.innerWidth, window.innerHeight)
   document.body.appendChild(renderer.domElement)
 
@@ -329,7 +330,7 @@ async function init() {
   )
 
   renderer.domElement.addEventListener("mousemove", onPointerMove)
-  window.addEventListener("resize", onResize)
+  window.addEventListener("resize", onWindowResize, false)
 
   // esc키로 편집 종료
   window.addEventListener("keydown", (e) => {
@@ -339,6 +340,17 @@ async function init() {
   })
 
   animate()
+}
+
+// 리사이즈 콜백 함수
+function onWindowResize() {
+  // 카메라 종횡비 업데이트
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+
+  // 렌더러 픽셀 비율·사이즈 업데이트
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
 }
 
 function createRoom() {
