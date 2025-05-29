@@ -41,6 +41,24 @@ let dragging = false
 
 let dragStartPos = null // 드래그 시작 시 위치 저장
 
+let pointerDownTime = 0;          // pointerdown 시각
+let dragStartScreen = null;       // pointerdown 위치
+let dragThreshold = 7;            // 픽셀 (7px 이상 움직이면 드래그로 간주)
+let clickTimeThreshold = 200;     // ms (200ms 이하면 클릭으로 간주)
+let wasDragging = false;  // 바로 직전 드래그였는지 체크
+
+let outlineLine = null; // 선택된 작품 테우리 효과를 위한 변수
+
+let isDragging = false;     // 드래그 중 여부
+let isResizingPainting = false;   // 크기조절 모드 여부
+
+let editingButtonsDiv = document.getElementById("paintingEditButtons"); // 하단 버튼 컨테이너
+// 편집버튼 클릭 시, 이벤트 전파 차단 (편집 종료 안 되게!)
+editingButtonsDiv.addEventListener("mousedown", function(e) {
+  e.stopPropagation();
+});
+
+
 let skipCancelPainting = false // 설정 패널 전환 시 복원 스킵할지 여부
 
 let currentPage = 0;
@@ -194,9 +212,11 @@ async function init() {
     .addEventListener("click", closeInfo)
   renderer.domElement.addEventListener("click", onClick)
 
+  /*
   // 작품선택모드 에서 클릭 시 개별 그림 편집 시작 (더블클릭 핸들링)
   renderer.domElement.addEventListener("click", (event) => {
     if (!isPaintingMode) return
+    if (isDragging) return // 드래그 중이면 클릭무시
 
     raycaster.setFromCamera(pointer, camera)
     const hits = raycaster.intersectObjects(paintings)
@@ -217,102 +237,139 @@ async function init() {
         dragging = true
         dragStartPos = editingPainting.position.clone()
       }
+    } else {
+      endEditingPainting(); // 그림이 아닌 곳 클릭 시 편집 종료 -> 버튼 숨김
     }
-  })
+  }) 
+  // 만약 작품선택모드 외에서도 click이 쓰여야 한다면
+  다음처럼 분리 : 
+  전시관 관람모드 (isPaintingMode === false) → click/onClick 사용 가능
+  작품선택모드 (isPaintingMode === true) → 오직 pointerdown/move/up만
+  */  
 
   renderer.domElement.addEventListener("dblclick", onDoubleClick)
 
   // 마우스 드래그로 그림 위치 이동
   renderer.domElement.addEventListener("pointerdown", (e) => {
-    if (!isPaintingMode) return
+    if (!isPaintingMode) return;
+    pointerDownTime = Date.now();
+    dragStartScreen = { x: e.clientX, y: e.clientY };
+    isDragging = false;
+    selectedPainting = null;
 
-    raycaster.setFromCamera(pointer, camera)
-    const targetPaintings = paintings.filter((painting) => detectWall(painting) === currentWall);
-    const hits = raycaster.intersectObjects(paintings)
-
-    if (hits.length > 0) {
-      const mesh = hits[0].object
-
-      if (editingPainting && editingPainting !== mesh) {
-        endEditingPainting()
-      }
-
-      // 선택
-      if (editingPainting !== mesh) {
-        startEditingPainting(mesh)
-      }
-
-      // 선택된 그림이면 바로 드래그 시작
-      if (editingPainting) {
-        dragging = true
-        dragStartPos = editingPainting.position.clone()
-      }
-    }
-  })
-
-  renderer.domElement.addEventListener("pointerup", (e) => {
-    selectedPainting = null
-  })
-
-  renderer.domElement.addEventListener("pointermove", (e) => {
-    if (!isPaintingMode || !e.buttons) return // 마우스 누르고 있을 때만
-
-    const rect = renderer.domElement.getBoundingClientRect()
+    // pointerdown에서 어떤 그림 위에 있는지 감지해서 selectedPainting 저장
+    const rect = renderer.domElement.getBoundingClientRect();
     const mouse = new THREE.Vector2(
       ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      -((e.clientY - rect.top) / rect.height) * 2 + 1,
-    )
-
-    raycaster.setFromCamera(mouse, camera)
-
-    if (!selectedPainting) {
-      const hits = raycaster.intersectObjects(paintings)
-      if (hits.length > 0) {
-        selectedPainting = hits[0].object
-      }
+      -((e.clientY - rect.top) / rect.height) * 2 + 1
+    );
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects(paintings);
+    if (hits.length > 0) {
+      selectedPainting = hits[0].object;
     }
+  });
 
-    if (selectedPainting) {
-      const wallMesh = scene.getObjectByName(currentWall)
-      const intersects = raycaster.intersectObject(wallMesh)
-      if (intersects.length > 0) {
-        const point = intersects[0].point.clone()
-        const normal = intersects[0].face.normal
-          .clone()
-          .transformDirection(wallMesh.matrixWorld)
-        point.add(normal.multiplyScalar(0.05))
-        
-        const box = new THREE.Box3().setFromObject(selectedPainting);
-        const size = new THREE.Vector3();
-        box.getSize(size);
+  renderer.domElement.addEventListener("pointerup", (e) => {
+    if (!isPaintingMode || !dragStartScreen) return;
+    const dt = Date.now() - pointerDownTime;
+    const dx = e.clientX - dragStartScreen.x;
+    const dy = e.clientY - dragStartScreen.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
 
-        const halfW = ROOM_WIDTH / 2;
-        const halfH = ROOM_HEIGHT / 2;
-        const halfD = ROOM_DEPTH / 2;
-
-        const halfWidth = size.x / 2;
-        const halfHeight = size.y / 2;
-        const halfDepth = size.z / 2;
-
-        // 현재 벽면 기준 클램핑 포인트
-        switch (currentWall) {
-          case "front":
-          case "back":
-            point.x = THREE.MathUtils.clamp(point.x, -halfW + halfWidth, halfW - halfWidth);
-            point.y = THREE.MathUtils.clamp(point.y, -halfH + halfHeight, halfH - halfHeight);
-            break;
-          case "left":
-          case "right":
-            point.z = THREE.MathUtils.clamp(point.z, -halfD + halfDepth, halfD - halfDepth);
-            point.y = THREE.MathUtils.clamp(point.y, -halfH + halfHeight, halfH - halfHeight);
-            break;
+    // --- 1. 드래그 상태 확인 ---
+    if (isDragging) {
+      wasDragging = true;
+      // 드래그로 끝났을 때는 아무 동작도 하지 않는다 (버튼X)
+    } else {
+      wasDragging = false;
+      // 클릭 판정(=드래그 아님 + 시간/거리 조건)
+      if (dt < clickTimeThreshold && dist < dragThreshold && selectedPainting) {
+        if (editingPainting && editingPainting !== selectedPainting) {
+          endEditingPainting();
         }
-
-        selectedPainting.position.copy(point);
-
+        if (editingPainting !== selectedPainting) {
+          startEditingPainting(selectedPainting);
+        }
+      }
+      // 그림 없는 곳 클릭시
+      if ((!selectedPainting || (dt < clickTimeThreshold && dist < dragThreshold && !selectedPainting))) {
+        endEditingPainting();
       }
     }
-  })
+
+    // 리셋
+    dragStartScreen = null;
+    pointerDownTime = 0;
+    isDragging = false;
+    selectedPainting = null;
+  });
+
+
+
+
+  renderer.domElement.addEventListener("pointermove", (e) => {
+    if (!isPaintingMode || !e.buttons || !dragStartScreen) return;
+
+    const dx = e.clientX - dragStartScreen.x;
+    const dy = e.clientY - dragStartScreen.y;
+    if (!isDragging && Math.sqrt(dx*dx + dy*dy) > dragThreshold) {
+      isDragging = true; // 일정 이상 움직이면 드래그 시작
+
+      if (isEditingPainting) { // 드래그 시작 -> 기존 편집(테두리) 제거
+      endEditingPainting();  // 테두리+편집버튼 모두 사라짐
+      }
+    }
+
+    // 드래그 중이면 selectedPainting 이동
+    if (isDragging && selectedPainting) {
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      raycaster.setFromCamera(mouse, camera);
+
+      const wallMesh = scene.getObjectByName(currentWall);
+      if (wallMesh) {
+        const intersects = raycaster.intersectObject(wallMesh);
+        if (intersects.length > 0) {
+          const point = intersects[0].point.clone();
+          const normal = intersects[0].face.normal
+            .clone()
+            .transformDirection(wallMesh.matrixWorld);
+          point.add(normal.multiplyScalar(0.05));
+
+          const box = new THREE.Box3().setFromObject(selectedPainting);
+          const size = new THREE.Vector3();
+          box.getSize(size);
+
+          const halfW = ROOM_WIDTH / 2;
+          const halfH = ROOM_HEIGHT / 2;
+          const halfD = ROOM_DEPTH / 2;
+
+          const halfWidth = size.x / 2;
+          const halfHeight = size.y / 2;
+          const halfDepth = size.z / 2;
+
+          switch (currentWall) {
+            case "front":
+            case "back":
+              point.x = THREE.MathUtils.clamp(point.x, -halfW + halfWidth, halfW - halfWidth);
+              point.y = THREE.MathUtils.clamp(point.y, -halfH + halfHeight, halfH - halfHeight);
+              break;
+            case "left":
+            case "right":
+              point.z = THREE.MathUtils.clamp(point.z, -halfD + halfDepth, halfD - halfDepth);
+              point.y = THREE.MathUtils.clamp(point.y, -halfH + halfHeight, halfH - halfHeight);
+              break;
+          }
+
+          selectedPainting.position.copy(point);
+        }
+      }
+    }
+  });
 
   renderer.domElement.addEventListener(
     "touchend",
@@ -328,6 +385,12 @@ async function init() {
     },
     { passive: false },
   )
+
+  document.addEventListener("mousedown", function(e) {
+    // 편집버튼만 예외, 그 외 나머지 클릭 시 무조건 편집 종료
+    if (e.target.closest("#editingButtonsDiv")) return;
+    endEditingPainting();
+  });
 
   renderer.domElement.addEventListener("mousemove", onPointerMove)
   window.addEventListener("resize", onWindowResize, false)
@@ -674,6 +737,8 @@ function zoomTo(painting, distance) {
 function onClick(event) {
   if (isPaintingMode) return // 설정창 작품선택 시 클릭 차단
   if (isCameraMoving) return
+  pointer.x = (event.clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(event.clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera)
   const hits = raycaster.intersectObjects(paintings)
   if (hits.length > 0) {
@@ -688,36 +753,13 @@ function onClick(event) {
       zoomedPainting = mesh
       zoomLevel = 1
     }
+  } else {
+    endEditingPainting(); // 그림이 아닌곳 클릭 시 편집 종료 -> 버튼 숨김
   }
 }
 
 function onDoubleClick(event) {
-  // 마우스 위치 계산
-  const rect = renderer.domElement.getBoundingClientRect();
-  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
-  raycaster.setFromCamera(pointer, camera);
-
-  // 작품 선택 모드일 때 현재 벽면의 그림만 대상으로
-  let targetPaintings = paintings;
-  if (isPaintingMode) {
-    targetPaintings = paintings.filter((painting) => detectWall(painting) === currentWall);
-  }
-
-  const intersects = raycaster.intersectObjects(targetPaintings);
-
-  if (intersects.length > 0) {
-    const mesh = intersects[0].object;
-
-    if (isPaintingMode) {
-      // 작품선택모드 시 크기 조절 허용
-      console.log("Scaling", mesh.userData.data.title, "on wall", detectWall(mesh));
-      handleScaleCycle(mesh); // 더블클릭으로 크기 순환
-      return; // 줌 관련 로직은 실행 안함
-    }
-  }
-
+  if (isPaintingMode) return // 설정창 작품선택 시 클릭 차단
   if (!zoomedPainting || isCameraMoving) return;
 
   if (zoomLevel === 1) {
@@ -762,12 +804,6 @@ document.getElementById("instructionOverlay").addEventListener("click", () => {
   document.getElementById("instructionOverlay").style.display = "none"
 })
 
-function onResize() {
-  camera.aspect = window.innerWidth / window.innerHeight
-  camera.updateProjectionMatrix()
-  renderer.setSize(window.innerWidth, window.innerHeight)
-}
-
 function animate() {
   requestAnimationFrame(animate)
   TWEEN.update()
@@ -791,6 +827,13 @@ function animate() {
   if (!isPaintingMode) {
     controls.update()
   }
+
+  // outlineLine이 있으면 따라가게(편집 중 위치이동시)
+  if (outlineLine && editingPainting) {
+    outlineLine.position.copy(editingPainting.position);
+    outlineLine.quaternion.copy(editingPainting.quaternion);
+  }
+
   renderer.render(scene, camera)
 }
 
@@ -1218,14 +1261,160 @@ function cancelPaintingChanges() {
 function startEditingPainting(mesh) {
   editingPainting = mesh
   isEditingPainting = true
+  showPaintingEditButtons(mesh); // 그림 클릭 시 버튼 표시
+  showOutline(mesh); // 테두리 효과 추가
+}
+
+function showPaintingEditButtons(mesh) {
+  if (!isPaintingMode || !mesh) return;
+  isResizingPainting = false; // 편집 진입할 때는 항상 false
+  editingButtonsDiv.innerHTML = `
+    <button id="resizeBtn">작품크기조절</button>
+    <button id="deleteBtn">삭제</button>
+  `;
+  editingButtonsDiv.style.display = "flex";
+
+  document.getElementById("resizeBtn").onclick = () => {
+    showResizeSizeButtons(mesh);
+  }
+  document.getElementById("deleteBtn").onclick = () => {
+    deletePainting(mesh);
+  }
 }
 
 function endEditingPainting() {
   if (editingPainting) {
+    removeOutline(); // 테두리 효과 제거
   }
+
+  if (isResizingPainting && editingPainting) {
+    // 크기조절 도중 확인을 안 누르고 종료할 때는
+    // scale을 원래 값(저장된 값)으로 복원
+    const orig = editingPainting.userData.originalScale;
+    const scaleValue = editingPainting.userData.scaleValue || 1;
+    editingPainting.scale.set(
+      orig.x * scaleValue,
+      orig.y * scaleValue,
+      orig.z
+    );
+    // outline도 복구
+    showOutline(editingPainting);
+    isResizingPainting = false;
+  }
+
   editingPainting = null
   isEditingPainting = false
   dragging = false // 명시적 초기화
+  hidePaintingEditButtons(); // 편집종료 시 버튼 숨김
+}
+
+function hidePaintingEditButtons() {
+  editingButtonsDiv.style.display = "none";
+  editingButtonsDiv.innerHTML = "";
+}
+
+function showResizeSizeButtons(mesh) {
+  isResizingPainting = true;
+
+  // 5가지 고정 배율값
+  const scaleList = [
+    {label: "6호", value: 0.5},
+    {label: "12호", value: 0.67},
+    {label: "25호", value: 1},
+    {label: "50호", value: 1.5},
+    {label: "100호", value: 2}
+  ];
+
+  // mesh의 원본스케일을 userData에 보관 (최초 진입시에만)
+  if (!mesh.userData.originalScale) {
+    mesh.userData.originalScale = mesh.scale.clone();
+  }
+  // 현재 배율 값도 없으면 1로
+  if (mesh.userData.scaleValue === undefined) {
+    mesh.userData.scaleValue = 1;
+  }
+
+  let currentScaleValue = mesh.userData.scaleValue;
+
+  editingButtonsDiv.innerHTML = `
+    <div style="display:flex;gap:8px;justify-content:center;">
+      ${scaleList.map(s =>
+        `<button class="scale-btn" data-scale="${s.value}" ${s.value===currentScaleValue?'style="background:#c7eaff;"':''}>${s.label}</button>`
+      ).join("")}
+    </div>
+    <button id="resizeOkBtn">확인</button>
+    <button id="resizeCancelBtn">취소</button>
+  `;
+
+  // 버튼 생성 후, 진입 시 현재 배율 버튼만 하이라이트!
+  const btns = document.querySelectorAll('.scale-btn');
+  btns.forEach(btn => {
+    if (parseFloat(btn.getAttribute('data-scale')) === currentScaleValue) {
+      btn.style.background = "#ffffff";
+    } else {
+      btn.style.background = "";
+    }
+  });
+
+
+  let tempScaleValue = currentScaleValue; // 임시 선택값
+
+  // 각 배율 버튼 클릭시
+  document.querySelectorAll('.scale-btn').forEach(btn => {
+    btn.onclick = () => {
+      tempScaleValue = parseFloat(btn.getAttribute('data-scale'));
+      // 원본스케일 x 선택배율
+      const orig = mesh.userData.originalScale;
+      mesh.scale.set(
+        orig.x * tempScaleValue,
+        orig.y * tempScaleValue,
+        orig.z
+      );
+      // 버튼 하이라이트 효과
+      document.querySelectorAll('.scale-btn').forEach(b=>b.style.background="");
+      btn.style.background = "#ffffff";
+      // outline도 배율 바뀔 때마다 갱신
+      showOutline(mesh);
+    };
+  });
+
+  // 확인 버튼
+  document.getElementById("resizeOkBtn").onclick = () => {
+    // mesh에 최종값 저장
+    mesh.userData.scaleValue = tempScaleValue;
+
+    // outline 크기 갱신
+    if (isEditingPainting && editingPainting === mesh) {
+      showOutline(mesh); // 테두리 다시 만듦
+    }
+
+    // 이미 scale 적용됨
+    isResizingPainting = false;
+    showPaintingEditButtons(mesh);
+  };
+
+  // 취소 버튼
+  document.getElementById("resizeCancelBtn").onclick = () => {
+    // 원래 크기로 복귀
+    const orig = mesh.userData.originalScale;
+    mesh.scale.set(
+      orig.x * currentScaleValue,
+      orig.y * currentScaleValue,
+      orig.z
+    );
+    // outline도 복구!
+    showOutline(mesh);
+
+    isResizingPainting = false;
+    showPaintingEditButtons(mesh);
+  };
+}
+
+function deletePainting(mesh) {
+  scene.remove(mesh);
+  const idx = paintings.indexOf(mesh);
+  if (idx !== -1) paintings.splice(idx, 1);
+  endEditingPainting();
 }
 
 function updatePaintingOrderByPosition() {
@@ -1263,68 +1452,40 @@ function detectWall(mesh) {
   return "unknown"
 }
 
-function handleScaleCycle(painting) {
-  if (painting.userData.sizeStep === undefined) {
-    painting.userData.sizeStep = 0;
-    painting.userData.originalScale = painting.scale.clone();
+function showOutline(mesh) {
+  removeOutline(); // 기존 outline 제거(중복방지)
+
+  // mesh geometry보다 약간 크게
+  const scale = 1.06;
+  const geo = mesh.geometry.clone();
+  geo.scale(scale, scale, scale);
+
+  const edges = new THREE.EdgesGeometry(geo);
+  const outlineMat = new THREE.LineBasicMaterial({
+    color: 0x3399ff, // 파란색
+    linewidth: 2 // 크롬에서는 1만 지원됨(두께 바꾸고 싶으면 scale로!)
+  });
+
+  outlineLine = new THREE.LineSegments(edges, outlineMat);
+  outlineLine.scale.copy(mesh.scale);
+  outlineLine.position.copy(mesh.position);
+  outlineLine.quaternion.copy(mesh.quaternion);
+  outlineLine.renderOrder = 999; // 항상 위에 그리기
+
+  scene.add(outlineLine);
+}
+
+function removeOutline() {
+  if (outlineLine) {
+    scene.remove(outlineLine);
+    outlineLine.geometry.dispose();
+    outlineLine.material.dispose();
+    outlineLine = null;
   }
-
-  const scaleSteps = [1, 1.5, 2, 1.5, 1];
-  painting.userData.sizeStep = (painting.userData.sizeStep + 1) % scaleSteps.length;
-  const factor = scaleSteps[painting.userData.sizeStep];
-
-  const base = painting.userData.originalScale;
-  const targetScale = new THREE.Vector3(
-    base.x * factor,
-    base.y * factor,
-    base.z // z값은 그대로 유지
-  );
-  
-  // 크기 변경 애니메이션
-  new TWEEN.Tween(painting.scale)
-    .to(
-      { x: targetScale.x, y: targetScale.y, z: targetScale.z },
-      200 // 지속 시간(ms)
-    )
-    .easing(TWEEN.Easing.Quadratic.Out)
-    .start();
-
-  // 크기 조정 이후, 벽면 한계 내로 위치 재조정
-  setTimeout(() => {
-    const box = new THREE.Box3().setFromObject(painting);
-    const size = new THREE.Vector3();
-    box.getSize(size);
-
-    const halfW = ROOM_WIDTH / 2;
-    const halfH = ROOM_HEIGHT / 2;
-    const halfD = ROOM_DEPTH / 2;
-
-    const halfWidth = size.x / 2;
-    const halfHeight = size.y / 2;
-    const halfDepth = size.z / 2;
-
-    let point = painting.position.clone();
-
-    switch (detectWall(painting)) {
-      case "front":
-      case "back":
-        point.x = THREE.MathUtils.clamp(point.x, -halfW + halfWidth, halfW - halfWidth);
-        point.y = THREE.MathUtils.clamp(point.y, -halfH + halfHeight, halfH - halfHeight);
-        break;
-      case "left":
-      case "right":
-        point.z = THREE.MathUtils.clamp(point.z, -halfD + halfDepth, halfD - halfDepth);
-        point.y = THREE.MathUtils.clamp(point.y, -halfH + halfHeight, halfH - halfHeight);
-        break;
-    }
-    painting.position.copy(point);
-  }, 210); // 애니메이션 끝나고 clamp (200ms + 약간의 여유)
-  
 }
 
 window.onload = initApp
 
-console.log(document.getElementById("settingsSlider"))
 window.showPanel = function (panelId) {
   const currentActive = document.querySelector(".settings-slide.active")
   const currentId = currentActive?.id
