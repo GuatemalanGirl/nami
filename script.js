@@ -388,7 +388,7 @@ async function init() {
 
   document.addEventListener("mousedown", function(e) {
     // 편집버튼만 예외, 그 외 나머지 클릭 시 무조건 편집 종료
-    if (e.target.closest("#editingButtonsDiv")) return;
+    if (e.target.closest("#paintingEditButtons")) return;
     endEditingPainting();
   });
 
