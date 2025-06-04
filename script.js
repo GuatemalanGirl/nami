@@ -1209,23 +1209,37 @@ function updatePageButtons() {
 let currentWall = "front" // 초기값
 const wallNames = ["front", "right", "back", "left"]
 
-document.getElementById("wallLeftButton").addEventListener("click", () => {
-  const idx = wallNames.indexOf(currentWall)
-  const newIdx = (idx - 1 + wallNames.length) % wallNames.length
-  currentWall = wallNames[newIdx]
-  updateWallView()
-})
+function updateAllWallLabels() {
+  document.querySelectorAll("#currentWallLabel").forEach(label => {
+    label.textContent = currentWall.charAt(0).toUpperCase() + currentWall.slice(1);
+  });
+}
 
-document.getElementById("wallRightButton").addEventListener("click", () => {
-  const idx = wallNames.indexOf(currentWall)
-  const newIdx = (idx + 1) % wallNames.length
-  currentWall = wallNames[newIdx]
-  updateWallView()
-})
+function addWallNavListeners() {
+  document.querySelectorAll("#wallLeftButton").forEach(btn => {
+    btn.onclick = () => {
+      const idx = wallNames.indexOf(currentWall);
+      currentWall = wallNames[(idx - 1 + wallNames.length) % wallNames.length];
+      updateWallView();
+    };
+  });
+  document.querySelectorAll("#wallRightButton").forEach(btn => {
+    btn.onclick = () => {
+      const idx = wallNames.indexOf(currentWall);
+      currentWall = wallNames[(idx + 1) % wallNames.length];
+      updateWallView();
+    };
+  });
+}
+window.addEventListener("DOMContentLoaded", () => {
+  addWallNavListeners();
+});
 
 function updateWallView() {
-  const label = document.getElementById("currentWallLabel")
-  label.textContent = currentWall.charAt(0).toUpperCase() + currentWall.slice(1)
+  // 모든 wall-nav 라벨을 한 번에 바꾼다!
+  document.querySelectorAll("#currentWallLabel").forEach(label => {
+    label.textContent = currentWall.charAt(0).toUpperCase() + currentWall.slice(1);
+  });
 
   // 카메라 시점 고정
   let pos = new THREE.Vector3()
@@ -1526,7 +1540,7 @@ window.showPanel = function (panelId) {
     endEditingPainting() // 작품선택(배치)모드 종료
   }
 
-  if (panelId === "panel-paintings") {
+  if (["panel-paintings", "panel-intro", "panel-artwalls"].includes(panelId)) {
     populatePaintingGrid()
     isPaintingMode = true // 작품선택모드 진입
     controls.enabled = false // 사용자 회전 비활성화
