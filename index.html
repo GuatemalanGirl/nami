@@ -69,8 +69,8 @@
             <button onclick="showPanel('panel-theme')">테마설정</button>
             <button onclick="showPanel('panel-background')">배경설정</button>
             <button onclick="showPanel('panel-paintings')">작품선택</button>
-            <button onclick="showPanel('panel-control')">4</button>
-            <button onclick="showPanel('panel-sound')">5</button>
+            <button onclick="showPanel('panel-intro')">전시서문쓰기</button>
+            <button onclick="showPanel('panel-artwalls')">아트월설정</button>
             <button onclick="showPanel('panel-etc')">6</button>
           </div>
         </div>
@@ -175,11 +175,10 @@
           <h4>
             전시할 작품을 선택합니다.<br />원하는 위치에 배치할 수 있습니다.
           </h4>
-          
-          
+    
           <!-- 좌우 벽 전환 버튼 -->
           <div class="wall-nav">
-          <button id="wallLeftButton"><</button>
+           <button id="wallLeftButton"><</button>
            <span id="currentWallLabel">Front</span>
            <button id="wallRightButton">></button>
           </div>
@@ -201,14 +200,34 @@
           </div>
         </div>
         
-        <div class="settings-slide" id="panel-control">
-          <h3>4</h3>
+        <div class="settings-slide" id="panel-intro">
+          <h3>전시서문쓰기</h3>
+          <br />
+          <h4>
+            전시서문을 작성합니다.<br />원하는 위치에 배치할 수 있습니다.
+          </h4>
+          <div class="wall-nav">
+           <button id="wallLeftButton"><</button>
+           <span id="currentWallLabel">Front</span>
+           <button id="wallRightButton">></button>
+          </div>
           <button onclick="showPanel('panel-main')">←</button>
         </div>
-        <div class="settings-slide" id="panel-sound">
-          <h3>5</h3>
+
+        <div class="settings-slide" id="panel-artwalls">
+          <h3>아트월설정</h3>
+          <br />
+          <h4>
+            아트월을 설정합니다.<br />원하는 위치에 배치할 수 있습니다.
+          </h4>
+          <div class="wall-nav">
+           <button id="wallLeftButton"><</button>
+           <span id="currentWallLabel">Front</span>
+           <button id="wallRightButton">></button>
+          </div>
           <button onclick="showPanel('panel-main')">←</button>
         </div>
+        
         <div class="settings-slide" id="panel-etc">
           <h3>6</h3>
           <button onclick="showPanel('panel-main')">←</button>
@@ -218,7 +237,6 @@
 
     <!-- 작품 편집 하단 버튼 (동적으로 토글됨) -->
     <div id="paintingEditButtons" style="display:none; position:fixed; left:50%; bottom:90px; transform:translateX(-50%); z-index:1001;"></div>
-
 
     <script type="module" src="script.js"></script>
   </body>
