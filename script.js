@@ -64,6 +64,30 @@ let skipCancelPainting = false // 설정 패널 전환 시 복원 스킵할지 �
 let currentPage = 0;
 const itemsPerPage = 9;
 
+function globalResizeBlocker(e) {
+  if (isResizingPainting) {
+    // 아래 조건에 해당하는 버튼만 클릭 허용
+    if (
+      e.target.classList.contains("scale-btn") ||
+      e.target.id === "resizeOkBtn" ||
+      e.target.id === "resizeCancelBtn" ||
+      e.target.closest(".scale-btn") ||
+      e.target.closest("#resizeOkBtn") ||
+      e.target.closest("#resizeCancelBtn")
+    ) {
+      // 버튼만 허용
+      return;
+    }
+    // 그 외는 모두 차단(편집 종료/외부클릭 방지)
+    e.stopPropagation();
+    e.preventDefault();
+  }
+}
+// 모든 주요 입력 이벤트에 대해 캡처링 단계에서 globalResizeBlocker를 등록
+["mousedown", "mouseup", "click", "pointerdown", "pointerup"].forEach(type => {
+  document.addEventListener(type, globalResizeBlocker, true);
+});
+
 const textureLoader = new THREE.TextureLoader()
 
 async function init() {
