@@ -6,6 +6,9 @@
     <title>NAMI_BETA</title>
     <link rel="stylesheet" href="style.css" />
 
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+    <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+
     <script type="importmap">
       {
         "imports": {
@@ -161,11 +164,7 @@
           </div>
           <div class="button-row">
             <button id="applyBackgroundButton">확인</button>
-            <button
-              onclick="if (window.restoreTextureSet) restoreTextureSet(); showPanel('panel-main')"
-            >
-              ←
-            </button>
+            <button onclick="showPanel('panel-main')">←</button>
           </div>
         </div>
         
@@ -178,9 +177,9 @@
     
           <!-- 좌우 벽 전환 버튼 -->
           <div class="wall-nav">
-           <button id="wallLeftButton"><</button>
-           <span id="currentWallLabel">Front</span>
-           <button id="wallRightButton">></button>
+           <button class="wall-left-btn"><</button>
+           <span class="current-wall-label">Front</span>
+           <button class="wall-right-btn">></button>
           </div>
           
           <!-- 작품 썸네일 그리드 -->
@@ -207,11 +206,18 @@
             전시서문을 작성합니다.<br />원하는 위치에 배치할 수 있습니다.
           </h4>
           <div class="wall-nav">
-           <button id="wallLeftButton"><</button>
-           <span id="currentWallLabel">Front</span>
-           <button id="wallRightButton">></button>
+           <button class="wall-left-btn"><</button>
+           <span class="current-wall-label">Front</span>
+           <button class="wall-right-btn">></button>
           </div>
-          <button onclick="showPanel('panel-main')">←</button>
+          <div class="intro-object-grid">
+            <img src="frame-thumbnail.png" draggable="true" id="introFrameThumb" title="프레임 서문" style="background:#ffe4b5;object-fit:contain;" alt="프레임 서문"/>
+            <img src="plane-thumbnail.png" draggable="true" id="introPlaneThumb" title="벽면 서문" style="background:#cde0ff;object-fit:contain;" alt="벽면 서문"/>
+          </div>
+          <div class="button-row">
+            <button id="applyIntroButton">확인</button>
+            <button onclick="showPanel('panel-main')">←</button>
+          </div>
         </div>
 
         <div class="settings-slide" id="panel-artwalls">
@@ -221,11 +227,14 @@
             아트월을 설정합니다.<br />원하는 위치에 배치할 수 있습니다.
           </h4>
           <div class="wall-nav">
-           <button id="wallLeftButton"><</button>
-           <span id="currentWallLabel">Front</span>
-           <button id="wallRightButton">></button>
+           <button class="wall-left-btn"><</button>
+           <span class="current-wall-label">Front</span>
+           <button class="wall-right-btn">></button>
           </div>
-          <button onclick="showPanel('panel-main')">←</button>
+          <div class="button-row">
+            <button id="applyArtwallsButton">확인</button>
+            <button onclick="showPanel('panel-main')">←</button>
+          </div>
         </div>
         
         <div class="settings-slide" id="panel-etc">
@@ -237,6 +246,15 @@
 
     <!-- 작품 편집 하단 버튼 (동적으로 토글됨) -->
     <div id="paintingEditButtons" style="display:none; position:fixed; left:50%; bottom:90px; transform:translateX(-50%); z-index:1001;"></div>
+
+    <!-- textarea 오버레이도 HTML에 추가해 주세요! -->
+    <div id="introTextEditorOverlay" style="display:none; position:fixed; z-index:1100;">
+      <div id="quillEditor"></div>
+      <div id="overlayBtnBar">
+        <button id="introTextApplyBtn">확인</button>
+        <button id="introTextCancelBtn">취소</button>
+      </div>
+    </div>
 
     <script type="module" src="script.js"></script>
   </body>
