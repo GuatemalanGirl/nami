@@ -556,7 +556,6 @@ button.settings-icon:hover {
   display: inline-block; /* input[type=color]일 때 필요 */
   vertical-align: middle; /* 버튼, input 모두 정렬 */
 }
-
 .color-pick-btn.selected,
 .color-pick-btn:focus {
   border: 3px solid #ff8b79;
@@ -579,4 +578,27 @@ input.color-pick-btn[type="color"] {
   display: inline-block;
   vertical-align: middle;
   margin: 0;
+}
+
+.artwall-grid {
+  grid-template-columns: 1fr;      /* 세로 3장 */
+  display: grid;
+  grid-auto-rows: 120px;           /* 각 썸네일 높이 */
+  gap: 10px;
+  width: max-content;              /* 그리드 자체를 가운데로   */
+  margin: 10px auto 0;             /*  ↑↔ 가운데 정렬          */
+}
+
+.artwall-grid img.thumbnail {
+  width: 100%;                     /* 셀을 꽉 채움             */
+  height: 100%;
+  object-fit: cover;               /* 비율 유지, 넘친 부분 잘라냄 */
+  border-radius: 10px;
+  cursor: grab;
+  transition: transform 0.3s ease;
+}
+
+.artwall-grid img.thumbnail:active {
+  cursor: grabbing;
+  transform: scale(0.95);          /* 드래그 중 살짝 축소 */
 }
