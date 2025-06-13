@@ -90,7 +90,7 @@ button:hover {
   border-radius: 20px;
   padding: 20px;
   z-index: 995;
-  max-width: 300px;
+  width: 300px;
   max-height: 1000px;
   overflow-y: auto;
   box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.3);
@@ -205,7 +205,7 @@ button.settings-icon:hover {
   position: fixed;
   top: 0;
   right: 0;
-  width: 300px;
+  width: min(90vw, 300px);
   height: 96vh;
   background: rgba(255, 186, 121, 0.95);
   box-shadow: -2px 0 8px rgba(0, 0, 0, 0.2);
@@ -260,6 +260,19 @@ button.settings-icon:hover {
   border-radius: 10px;
   border: 1px solid #ccc;
   font-size: 16px;
+}
+
+/* ───────── 모바일 전용 스타일 ───────── */
+@media (max-width: 600px) {
+  .settings-panel {
+    width: 100vw;        /* 화면 전체 너비 */
+    height: 100vh;       /* 화면 전체 높이 */
+    border-radius: 0;    /* 모서리 제거 */
+    overflow-y: auto;    /* 내부 스크롤 허용 */
+  }
+  .settings-slide {
+    padding: 10px;       /* 패딩 조금 축소 */
+  }
 }
 
 .settings-menu {
@@ -392,7 +405,7 @@ button.settings-icon:hover {
   opacity: 1;
 }
 
-#currentWallLabel {
+.current-wall-label {
   font-size: 22px;
   font-weight: bold;
   color: #333;
@@ -437,4 +450,133 @@ button.settings-icon:hover {
 
 .grid-controls button:hover {
   background-color: #ffb48f;
+}
+
+.intro-object-grid {
+  display: flex;
+  gap: 25px;
+  justify-content: center;
+  margin: 25px 0;
+}
+.intro-object-grid img {
+  width: 90px;
+  height: 90px;
+  border-radius: 14px;
+  border: 2px solid #bbb;
+  cursor: grab;
+  transition: border 0.3s, box-shadow 0.3s;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  background: #fafaff;
+}
+.intro-object-grid img:active {
+  cursor: grabbing;
+  border: 2px solid #ff8b79;
+  box-shadow: 0 4px 18px rgba(255, 139, 121, 0.08);
+}
+
+#introTextEditorOverlay {
+  background: rgba(255,255,255,0.96);  /* 거의 흰색, 불투명도 조정 가능 */
+  border-radius: 20px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.14);
+  padding: 18px 24px 12px 24px;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  min-height: 80px;         /* 입력부의 최소 높이 (더 줄일 수 있음) */
+  max-height: 240px;        /* 입력부의 최대 높이 (원하는 값으로) */
+}
+
+/* 편집 영역은 남은 높이를 모두 사용 */
+#quillEditor{
+  flex : 1 1 auto;
+  min-height: 40px;         /* 입력부의 최소 높이 (더 줄일 수 있음) */
+  max-height: 120px;        /* 입력부의 최대 높이 (원하는 값으로) */
+  overflow-y : auto;
+}
+
+/* 버튼 막대 – 가운데 정렬 + 아래 붙이기 */
+#overlayBtnBar{
+  position : fixed;
+  bottom : 10px;
+  left : 50%;
+  transform : translateX(-50%);
+  display : flex;
+  justify-content : center; /* 가운데 정렬 */
+  align-items: center;
+  gap : 10px; /* 버튼 간격 */
+}
+
+.overlay-panel {
+  position: fixed;
+  left: 50%;
+  bottom: 70px;
+  transform: translateX(-50%);
+  background: rgba(255,255,255,0.96);
+  border-radius: 20px;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+  padding: 28px 32px 18px 32px;
+  z-index: 1200;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 320px;
+  min-height: 120px;
+}
+
+.color-palette {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: center;
+}
+
+.color-row {
+  display: flex;
+  flex-direction: row;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+}
+
+.color-pick-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  border-radius: 50%;
+  border: 2px solid #bbb;
+  cursor: pointer;
+  background: none;
+  transition: border 0.16s;
+  outline: none;
+  box-sizing: border-box;
+  padding: 0;
+  display: inline-block; /* input[type=color]일 때 필요 */
+  vertical-align: middle; /* 버튼, input 모두 정렬 */
+}
+
+.color-pick-btn.selected,
+.color-pick-btn:focus {
+  border: 3px solid #ff8b79;
+}
+
+input.color-pick-btn[type="color"] {
+  appearance: none;
+  -webkit-appearance: none;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  max-width: 36px;
+  max-height: 36px;
+  padding: 0;
+  border: 2px solid #bbb;
+  box-sizing: border-box;
+  background: none;
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0;
 }
