@@ -81,8 +81,27 @@ let isStoryEditing = false;
 
 let skipCancelPainting = false // 설정 패널 전환 시 복원 스킵할지 여부
 
+let isArtwallMode      = false;      // 아트월 편집 모드 진입 여부
+let dragStartArt       = null;       // pointerdown에서 마우스 좌표 기록
+let pointerDownArtTime = 0;          // pointerdown 시간 기록
+let isDraggingArt      = false;      // 드래그 중 여부
+let selectedArtwall    = null;       // 현재 마우스로 선택한 아트월 Mesh
+let editingArtwall     = null;       // 현재 편집(삭제 버튼) 중인 아트월 Mesh
+let artwalls      = [];      // 확정된 아트월 Mesh
+let tempArtwalls  = [];      // 편집 중 임시 Mesh
+let originalArtwallsState = [];  // 롤백용
+let artwallsData  = [];              // [{filename, title, …}, …]
+let currentArtwallsPage = 0;
+const artwallsItemsPerPage = 3;
+
 let currentPage = 0;
 const itemsPerPage = 9;
+
+/* 메타데이터 JSON 로드 */
+fetch("https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/artwalls/metadata_artwalls.json")
+  .then(r => r.json())
+  .then(json => artwallsData = json)
+  .catch(() => alert("아트월 정보를 불러오지 못했습니다!"));
 
 /* 정렬 호출을 디바운스로 감싸는 유틸 */
 let sortDebounce = null;
@@ -145,6 +164,17 @@ function globalInputBlocker(e) {
       return;
     }
   }
+
+  const introOverlay = document.getElementById('introTextEditorOverlay');
+  if (introOverlay && introOverlay.style.display !== 'none') {
+    // 오버레이 내부만 허용, 나머지는 차단
+    if (!introOverlay.contains(e.target)) {
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+  }
+
 }
 // 모든 주요 입력 이벤트에 대해 캡처링 단계에서 globalResizeBlocker를 등록
 ["mousedown", "mouseup", "click", "pointerdown", "pointerup"].forEach(type => {
@@ -178,7 +208,30 @@ async function init() {
 
   renderer.domElement.addEventListener("drop", (e) => {
     e.preventDefault();
-    
+    /* ---- (0) 아트월 썸네일 드롭 ---- */
+    const artRaw = e.dataTransfer.getData("artwall");
+    if (artRaw) {
+      const wallData = JSON.parse(artRaw);
+
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top)  / rect.height) * 2 + 1
+      );
+      raycaster.setFromCamera(mouse, camera);
+
+      const wallMesh = scene.getObjectByName(currentWall);
+      const hit = wallMesh ? raycaster.intersectObject(wallMesh)[0] : null;
+      if (!hit) return;
+
+      const point = hit.point.clone();
+      const rotY  = { front: Math.PI, back: 0,
+                      left: -Math.PI/2, right: Math.PI/2 }[currentWall];
+
+      loadAndAddArtwall(wallData, point, rotY).then(m => tempArtwalls.push(m));
+      return;   // 아래 그림/서문 분기 건너뛰기
+    }
+
     // (1) 그림(작품) 드래그앤드롭
     const paintingRaw = e.dataTransfer.getData("painting");
     if (paintingRaw) {
@@ -389,6 +442,32 @@ async function init() {
       document.getElementById("settingsToggle").click();    // 기존 토글 재사용
     } 
 
+    // ───────── 아트월설정 모드일 때 (isArtwallMode) ─────────
+    if (isArtwallMode) {
+      pointerDownArtTime = Date.now();
+      dragStartArt       = { x: e.clientX, y: e.clientY };
+      isDraggingArt      = false;
+      selectedArtwall    = null;
+
+      // pointerdown에서 어떤 아트월 위에 있는지 감지해서 selectedArtwall 저장
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      raycaster.setFromCamera(mouse, camera);
+      // **현재 벽면의 아트월만 대상으로 Raycast!**
+      const wallArts = artwalls.filter(mesh => detectWall(mesh) === currentWall);
+      const hit = raycaster.intersectObjects(wallArts)[0];
+      if (hit) selectedArtwall = hit.object;
+
+      // 다른 아트월 편집 중이면 종료
+      if (editingArtwall && editingArtwall !== selectedArtwall) {
+        endEditingArtwall();
+      }
+      return; // 아트월 모드일 때는 여기서 끝
+    } 
+
     if (!isPaintingMode) return;
     pointerDownTime = Date.now();
     dragStartScreen = { x: e.clientX, y: e.clientY };
@@ -407,6 +486,9 @@ async function init() {
     if (hits.length > 0) {
       selectedPainting = hits[0].object;
     }
+
+    
+
   });
 
   renderer.domElement.addEventListener("pointerup", (e) => {
@@ -537,6 +619,101 @@ async function init() {
       endEditingPainting()
     }
   })
+
+  const dom = renderer.domElement;
+
+// 1) pointerdown: 아트월 선택/편집 모드 진입
+dom.addEventListener("pointerdown", e => {
+  if (!isArtwallMode) return;
+  pointerDownArtTime = Date.now();
+  dragStartArt       = { x: e.clientX, y: e.clientY };
+  isDraggingArt      = false;
+  selectedArtwall    = null;
+
+  // Raycast로 현재 벽면에서 클릭한 아트월 찾기
+  const rect = dom.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top)  / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(mouse, camera);
+  const wallArts = artwalls.filter(m => detectWall(m) === currentWall);
+  const hit = raycaster.intersectObjects(wallArts)[0];
+  if (hit) selectedArtwall = hit.object;
+
+  // 이미 다른 아트월 편집중이면 편집 종료
+  if (editingArtwall && editingArtwall !== selectedArtwall) {
+    endEditingArtwall();
+  }
+});
+
+// 2) pointermove: 드래그로 이동
+dom.addEventListener("pointermove", e => {
+  if (!isArtwallMode || !(e.buttons & 1) || !dragStartArt) return;
+
+  const dx = e.clientX - dragStartArt.x;
+  const dy = e.clientY - dragStartArt.y;
+  if (!isDraggingArt && Math.hypot(dx, dy) > dragThreshold) {
+    isDraggingArt = true;
+    endEditingArtwall();                 // 드래그 시작 → 편집 패널 숨김
+  }
+  if (!isDraggingArt || !selectedArtwall) return;
+
+  // 벽면에서 마우스 위치에 따라 아트월 이동
+  const rect = dom.getBoundingClientRect();
+  const mouse = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top)  / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(mouse, camera);
+  const wallMesh = scene.getObjectByName(currentWall);
+  const hit = wallMesh && raycaster.intersectObject(wallMesh)[0];
+  if (!hit) return;
+
+  const p = hit.point.clone();
+  const n = hit.face.normal.clone().transformDirection(wallMesh.matrixWorld);
+  p.add(n.multiplyScalar(0.05));         // 벽에서 살짝 띄우기
+
+  // 벽 경계 내로 클램프
+  const halfW = ROOM_WIDTH /2,  halfH = ROOM_HEIGHT/2, halfD = ROOM_DEPTH/2;
+  const sBox  = new THREE.Box3().setFromObject(selectedArtwall);
+  const size  = new THREE.Vector3(); sBox.getSize(size);
+  const hw=size.x/2, hh=size.y/2, hd=size.z/2;
+
+  switch (currentWall) {
+    case "front": case "back":
+      p.x = THREE.MathUtils.clamp(p.x, -halfW+hw, halfW-hw);
+      p.y = THREE.MathUtils.clamp(p.y, -halfH+hh, halfH-hh);
+      break;
+    case "left": case "right":
+      p.z = THREE.MathUtils.clamp(p.z, -halfD+hd, halfD-hd);
+      p.y = THREE.MathUtils.clamp(p.y, -halfH+hh, halfH-hh);
+      break;
+  }
+  selectedArtwall.position.copy(p);
+});
+
+// 3) pointerup: 클릭(편집) vs 드래그(이동) 판정
+dom.addEventListener("pointerup", e => {
+  if (!isArtwallMode || !dragStartArt) return;
+
+  const dt   = Date.now() - pointerDownArtTime;
+  const dist = Math.hypot(e.clientX-dragStartArt.x, e.clientY-dragStartArt.y);
+  const clicked = dt < clickTimeThreshold && dist < dragThreshold;
+
+  if (!isDraggingArt && clicked && selectedArtwall) {
+    startEditingArtwall(selectedArtwall);   // 클릭시 편집 진입(삭제 버튼 생성)
+  }
+  if (!selectedArtwall || (clicked && !selectedArtwall)) {
+    endEditingArtwall();
+  }
+
+  // 리셋
+  dragStartArt = null;
+  isDraggingArt = false;
+  selectedArtwall = null;
+});
+
 
   animate()
 }
@@ -1310,8 +1487,8 @@ function populatePaintingGrid() {
 
   grid.innerHTML = "" // 기존 내용 초기화
 
-  const start = currentPage * itemsPerPage;
-  const end = start + itemsPerPage;
+  const start = currentPage * artwallsItemsPerPage ;
+  const end = start + artwallsItemsPerPage ;
   const currentItems = paintingsData.slice(start, end);
 
   currentItems.forEach((painting, index) => {
@@ -1841,11 +2018,15 @@ function createIntroWallPlaneAt(position, currentWall) {
   let rotY = getWallRotationY(currentWall); // 아래에서 함수도 참고
   plane.rotation.y = rotY;
 
-  // 3. 벽 정면 방향으로 plane의 두께(혹은 약간의 offset)만큼 더 빼기
-  // (작품 드롭과 동일하게 "앞면이 실내로" 향하게)
-  const offset = 0.001; // 플레인이 벽에 파묻히지 않게
+  // 3. 벽 정면 방향으로 plane의 두께(혹은 offset)만큼 더 빼기
+  // 여기서 offset을 "아트월"보다 더 크게!
+  const artwallOffset = 0.05;      // 아트월이 사용하는 offset 예시
+  const introPlaneOffset = 0.08;   // 벽면서문은 0.08로 더 앞쪽!
   const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(plane.quaternion);
-  plane.position.add(forward.multiplyScalar(offset));
+  plane.position.add(forward.multiplyScalar(introPlaneOffset));
+
+  // 4. 항상 아트월보다 위에 나오도록 renderOrder 적용
+  plane.renderOrder = 10; // 아트월이 1~2면 이건 10 등 더 큰 값
 
   plane.userData = {
     isPainting : true,          // ← 탐색 대상
@@ -2477,33 +2658,33 @@ function showFrameColorPicker(mesh) {
       rowDiv.appendChild(colorBtn);
     });
 
-    // 두 번째 줄 마지막에 컬러피커 input
+    // ── 두 번째 줄 끝 : “사용자 지정 색상” ─────────────
     if (rowIdx === 1) {
-      // 무지개 버튼(임의컬러 선택)
-      const rainbowBtn = document.createElement('button');
-      rainbowBtn.className = 'color-pick-btn';
-      rainbowBtn.innerHTML = '🌈';
-      rainbowBtn.title = '임의 색상 선택';
+      /* 1. 🌈 대신 input 자체를 버튼처럼 */
+      const customInput = document.createElement('input');
+      customInput.type  = 'color';
+      customInput.className = 'color-pick-btn';   // 버튼과 같은 둥근 스타일
+      customInput.style.padding = '0';            // 여백 제거
+      customInput.style.cursor  = 'pointer';      // 손가락 커서
+      customInput.value = '#' + prevColor;        // 초기 색
 
-      const colorInput = document.createElement('input');
-      colorInput.type = 'color';
-      colorInput.style.display = 'none';
+      /* 2. 색을 고르면 즉시 반영 */
+      customInput.addEventListener('input', e => {
+        const hex = e.target.value;
+        mesh.material[4].color.set(hex);
+        mesh.userData.frameColorTemp = hex;
 
-      rainbowBtn.onclick = () => colorInput.click();
+        customInput.style.background = hex;
 
-      colorInput.addEventListener('input', e => {
-        mesh.material[4].color.set(e.target.value);
-        mesh.userData.frameColorTemp = e.target.value;
-        rainbowBtn.style.background = e.target.value;
-        rainbowBtn.textContent = ''; // 색상 선택 시 이모지 대신 색상만
-        document.querySelectorAll('.color-pick-btn').forEach(btn => btn.classList.remove('selected'));
-        rainbowBtn.classList.add('selected');
+        document.querySelectorAll('.color-pick-btn')
+                .forEach(b => b.classList.remove('selected'));
+        customInput.classList.add('selected');
       });
 
-      rowDiv.appendChild(rainbowBtn);
-      rowDiv.appendChild(colorInput);
+      rowDiv.appendChild(customInput);      
     }
-    paletteDiv.appendChild(rowDiv);
+
+  paletteDiv.appendChild(rowDiv);
   });
   palette.appendChild(paletteDiv);
 
@@ -2751,6 +2932,135 @@ function cancelIntroChanges() {
   originalIntroState = [];
 }
 
+/* -------- [ARTWALL] 썸네일 -------- */
+function populateArtwallGrid() {
+  const grid = document.getElementById("artwallGrid");
+  if (!grid) return;
+
+  grid.innerHTML = "";
+  const start = currentArtwallsPage * artwallsItemsPerPage;
+  const end   = start + artwallsItemsPerPage;
+
+  artwallsData.slice(start, end).forEach(wall => {
+    const img = document.createElement("img");
+    img.src = `https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/artwalls/${wall.filename}`;
+    img.alt = wall.title || "";
+    img.draggable = true;
+    img.classList.add("thumbnail");
+    img.addEventListener("dragstart", e =>
+      e.dataTransfer.setData("artwall", JSON.stringify(wall))
+    );
+    grid.appendChild(img);
+  });
+
+  updateArtwallPageButtons();
+}
+
+function updateArtwallPageButtons() {
+  const prev = document.getElementById("prevArtPageBtn");
+  const next = document.getElementById("nextArtPageBtn");
+  const max  = Math.floor((artwallsData.length - 1) / artwallsItemsPerPage );
+  prev.disabled = artwallsItemsPerPage === 0;
+  next.disabled = artwallsItemsPerPage >= max;
+}
+
+document.getElementById("prevArtPageBtn").addEventListener("click", () => {
+  if (currentArtwallsPage > 0) { currentArtwallsPage--; populateArtwallGrid(); }
+});
+document.getElementById("nextArtPageBtn").addEventListener("click", () => {
+  const max = Math.floor((artwallsData.length - 1) / artwallsItemsPerPage );
+  if (artwallsItemsPerPage < max) { artwallsItemsPerPage++; populateArtwallGrid(); }
+});
+
+/* -------- [ARTWALL] PlaneGeometry 생성 -------- */
+function loadAndAddArtwall(data, position, rotationY) {
+  return new Promise((resolve, reject) => {
+    const url = `https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/artwalls/${data.filename}`;
+    textureLoader.load(
+      url,
+      tx => {
+        const aspect = tx.image.width / tx.image.height;
+        const height = ROOM_HEIGHT;            // 항상 천장~바닥
+        let   width  = height * aspect;
+
+        const maxWidth = ["left","right"].includes(currentWall)
+                       ? ROOM_DEPTH : ROOM_WIDTH;
+        width = Math.min(width, maxWidth);
+
+        const geo = new THREE.PlaneGeometry(width, height);
+        const mat = new THREE.MeshBasicMaterial({ map: tx });
+        const mesh = new THREE.Mesh(geo, mat);
+
+        mesh.position.copy(position);
+        mesh.rotation.y = rotationY;
+        // 살짝 띄워 Z-파이팅 방지
+        const n = new THREE.Vector3(0,0,1).applyQuaternion(mesh.quaternion);
+        mesh.position.add(n.multiplyScalar(0.01));
+
+        mesh.userData.isArtwall = true;
+        scene.add(mesh);
+        artwalls.push(mesh);
+        resolve(mesh);
+      },
+      undefined, reject);
+  });
+}
+
+function handleApplyArtwalls() {
+  isArtwallMode = false;
+  controls.enabled = true;
+  originalArtwallsState = [...artwalls];   // 확정
+  tempArtwalls = [];
+  showPanel("panel-main");
+}
+document.getElementById("applyArtwallsButton")
+        .addEventListener("click", handleApplyArtwalls);
+
+function cancelArtwallChanges() {
+  tempArtwalls.forEach(m => {
+    scene.remove(m);
+    m.geometry?.dispose();
+    m.material?.map?.dispose();
+    m.material?.dispose();
+  });
+  tempArtwalls = [];
+}
+
+function startEditingArtwall(mesh){
+  editingArtwall = mesh;
+  showOutline(mesh);               // 테두리 효과 함수 (공통)
+  showArtwallButtons(mesh);       // 삭제버튼 등 UI 표시
+}
+function endEditingArtwall(){
+  if (!editingArtwall) return;
+  removeOutline(editingArtwall);  // 테두리 제거 (공통)
+  editingButtonsDiv.style.display = "none";
+  editingArtwall = null;
+}
+function showArtwallButtons(mesh){
+  editingButtonsDiv.innerHTML = "";
+  const del = document.createElement("button");
+  del.textContent = "삭제";
+  del.onclick = () => {
+    scene.remove(mesh);
+    artwalls.splice(artwalls.indexOf(mesh),1);
+    endEditingArtwall();
+  };
+  editingButtonsDiv.appendChild(del);
+  editingButtonsDiv.style.display = "block";
+}
+
+function enterArtwallMode(){
+  isArtwallMode = true;
+  controls.enabled = false;      // 3D 시점 고정
+}
+function exitArtwallMode(){
+  isArtwallMode = false;
+  controls.enabled = true;       // 3D 시점 자유
+  endEditingArtwall();           // 편집 모드 종료
+}
+
+
 window.onload = initApp
 
 window.showPanel = function (panelId) {
@@ -2823,6 +3133,24 @@ window.showPanel = function (panelId) {
     tempIntroMeshes = [];
   } else {
     isIntroMode = false;
+  }
+
+    if (currentId === "panel-artwalls" && panelId === "panel-main") {
+    cancelArtwallChanges();       // ↙ ⑧에서 정의
+    isArtwallMode = false;
+  }
+
+  if (panelId === "panel-artwalls") {
+    populateArtwallGrid();
+    isArtwallMode = true;
+    controls.enabled = false;
+    currentWall = "front";
+    updateWallView();
+
+    originalArtwallsState = [...artwalls];
+    tempArtwalls = [];
+  } else {
+    isArtwallMode = false;
   }
 
   // 모든 패널에서 active 클래스 제거 후, 선택한 패널에만 추가
