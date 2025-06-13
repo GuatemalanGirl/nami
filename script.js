@@ -27,6 +27,25 @@ let isCameraMoving = false,
 let zoomedPainting = null // 현재 줌인된 그림을 저장할 변수
 let zoomLevel = 0 // 줌 레벨 (0: 초기, 1: 1차 줌, 2: 2차 줌)
 
+let skipCancelBackground = false;   // 확인(Apply)을 눌렀을 때만 true
+
+let draggedIntroType = null;
+let isIntroMode = false;  // 전시서문쓰기모드 여부
+let editingIntroMesh = null; // 현재 편집중인 mesh 저장
+let quill = null; // Quill 에디터 인스턴스
+const introTextEditorOverlay = document.getElementById("introTextEditorOverlay");
+
+// Quill 오버레이 내부 클릭 시 이벤트 전파 막기 (이벤트 캡처링 방지)
+introTextEditorOverlay.addEventListener('mousedown', e => e.stopPropagation());
+
+let editingIntroHTML = null; // 편집 중인 전시서문 HTML 저장용
+let prevCameraPos = null;
+let prevControlsTarget = null;
+let originalIntroState = []; // 전시서문쓰기패널 진입 시점 상태 저장
+let tempIntroMeshes = [];
+let skipCancelIntro = false;
+let isColorPicking = false;   // 프레임 팔레트 열림 여부
+
 
 let isPaintingMode = false // 설정창 "작품선택" 모드인지 여부
 let originalPaintings = [] // 이전 상태 저장용
@@ -58,13 +77,23 @@ editingButtonsDiv.addEventListener("mousedown", function(e) {
   e.stopPropagation();
 });
 
+let isStoryEditing = false;
 
 let skipCancelPainting = false // 설정 패널 전환 시 복원 스킵할지 여부
 
 let currentPage = 0;
 const itemsPerPage = 9;
 
-function globalResizeBlocker(e) {
+/* 정렬 호출을 디바운스로 감싸는 유틸 */
+let sortDebounce = null;
+function safeUpdatePaintingOrder(delay = 50) {
+  clearTimeout(sortDebounce);
+  sortDebounce = setTimeout(updatePaintingOrderByPosition, delay);
+}
+/* ──────────────────────────────*/
+
+
+function globalInputBlocker(e) {
   if (isResizingPainting) {
     // 아래 조건에 해당하는 버튼만 클릭 허용
     if (
@@ -81,11 +110,45 @@ function globalResizeBlocker(e) {
     // 그 외는 모두 차단(편집 종료/외부클릭 방지)
     e.stopPropagation();
     e.preventDefault();
+    return;
+  }
+
+  if (isStoryEditing) {
+    const overlay = document.getElementById('paintingStoryEditorOverlay');
+    // overlay 내부 요소가 아닌 곳은 모두 막는다
+    if (!overlay || !overlay.contains(e.target)) {
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+  }
+      // ─── 프레임 색상 팔레트가 열려 있으면 ───
+  if (isColorPicking) {
+    const palette = document.getElementById('frameColorPalette');
+    if (!palette || !palette.contains(e.target)) {   // 팔레트 바깥이면 차단
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
+  }
+    
+  // 작품선택모드 + infoModal 열려있을 때 infoModal 외부 클릭 차단!
+  if (
+    isPaintingMode &&
+    document.getElementById('infoModal').style.display === 'block'
+  ) {
+    const modal = document.getElementById('infoModal');
+    // infoModal 내부 클릭은 허용, 외부만 차단
+    if (!modal.contains(e.target)) {
+      e.stopPropagation();
+      e.preventDefault();
+      return;
+    }
   }
 }
 // 모든 주요 입력 이벤트에 대해 캡처링 단계에서 globalResizeBlocker를 등록
 ["mousedown", "mouseup", "click", "pointerdown", "pointerup"].forEach(type => {
-  document.addEventListener(type, globalResizeBlocker, true);
+  document.addEventListener(type, globalInputBlocker, true);
 });
 
 const textureLoader = new THREE.TextureLoader()
@@ -108,85 +171,123 @@ async function init() {
   renderer.setSize(window.innerWidth, window.innerHeight)
   document.body.appendChild(renderer.domElement)
 
-  // 드래그 앤 드롭 이벤트 등록
+  // 드래그앤드롭 이벤트 등록
   renderer.domElement.addEventListener("dragover", (e) => {
-    e.preventDefault() // 기본 동작 방지
-  })
+    e.preventDefault(); // 기본 동작 방지
+  });
 
   renderer.domElement.addEventListener("drop", (e) => {
-    e.preventDefault()
-    const paintingRaw = e.dataTransfer.getData("painting")
-    if (!paintingRaw) {
-      console.warn("No painting data found")
-      return
-    }
+    e.preventDefault();
+    
+    // (1) 그림(작품) 드래그앤드롭
+    const paintingRaw = e.dataTransfer.getData("painting");
+    if (paintingRaw) {
+      let paintingData;
+      try {
+        paintingData = JSON.parse(paintingRaw);
+      } catch (err) {
+        console.error("Invalid painting data:", err);
+        return;
+      }
+      console.log("Dropped painting:", paintingData);
 
-    let paintingData;
-    try {
-      paintingData = JSON.parse(paintingRaw);
-    } catch (err) {
-      console.error("Invalid painting data:", err);
-      return;
-    }
-    console.log("Dropped painting:", paintingData);
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
 
-    const rect = renderer.domElement.getBoundingClientRect()
-    const mouse = new THREE.Vector2(
-      ((e.clientX - rect.left) / rect.width) * 2 - 1,
-      -((e.clientY - rect.top) / rect.height) * 2 + 1,
-    )
+      raycaster.setFromCamera(mouse, camera);
 
-    raycaster.setFromCamera(mouse, camera)
-
-    const wallMesh = scene.getObjectByName(currentWall)
-    if (!wallMesh) {
-      console.warn("Wall not found:", currentWall)
-      return
-    }
-
-    const intersects = raycaster.intersectObject(wallMesh)
-    console.log("Intersects:", intersects)
-
-    if (intersects.length > 0) {
-      const point = intersects[0].point.clone()
-      const normal = intersects[0].face.normal
-        .clone()
-        .transformDirection(wallMesh.matrixWorld)
-      point.add(normal.multiplyScalar(0.05))
-
-      // 임시 그림을 만들기 전에 벽 안으로 제한
-      const halfW = ROOM_WIDTH / 2;
-      const halfH = ROOM_HEIGHT / 2;
-      const halfD = ROOM_DEPTH / 2;
-      const margin = 1; // 최소 여백
-
-      switch (currentWall) {
-        case "front":
-        case "back":
-          point.x = THREE.MathUtils.clamp(point.x, -halfW + margin, halfW - margin);
-          point.y = THREE.MathUtils.clamp(point.y, -halfH + margin, halfH - margin);
-          break;
-        case "left":
-        case "right":
-          point.z = THREE.MathUtils.clamp(point.z, -halfD + margin, halfD - margin);
-          point.y = THREE.MathUtils.clamp(point.y, -halfH + margin, halfH - margin);
-          break;
+      const wallMesh = scene.getObjectByName(currentWall);
+      console.log("currentWall:", currentWall, "wallMesh:", wallMesh);
+      if (!wallMesh) {
+        alert("벽을 찾을 수 없습니다. wall-nav 벽 이름 확인!");
+        draggedIntroType = null; // 그림 드롭 실패시 초기화
+        return;
       }
 
-      const wallRotY = {
-        front: Math.PI,
-        back: 0,
-        left: -Math.PI / 2,
-        right: Math.PI / 2,
-      }[currentWall]
+      const intersects = raycaster.intersectObject(wallMesh);
+      console.log("Intersects:", intersects);
 
-      loadAndAddPainting(paintingData, point, wallRotY).then((mesh) => {
-        tempPaintings.push(mesh) // 나중에 제거할 대상 추적
-      })
-    } else {
-      console.warn("No intersection with wall.")
+      if (intersects.length > 0) {
+        const point = intersects[0].point.clone();
+        const normal = intersects[0].face.normal
+          .clone()
+          .transformDirection(wallMesh.matrixWorld);
+        point.add(normal.multiplyScalar(0.05));
+
+        // 벽 안쪽에 위치 제한
+        const halfW = ROOM_WIDTH / 2;
+        const halfH = ROOM_HEIGHT / 2;
+        const halfD = ROOM_DEPTH / 2;
+        const margin = 1;
+
+        switch (currentWall) {
+          case "front":
+          case "back":
+            point.x = THREE.MathUtils.clamp(point.x, -halfW + margin, halfW - margin);
+            point.y = THREE.MathUtils.clamp(point.y, -halfH + margin, halfH - margin);
+            break;
+          case "left":
+          case "right":
+            point.z = THREE.MathUtils.clamp(point.z, -halfD + margin, halfD - margin);
+            point.y = THREE.MathUtils.clamp(point.y, -halfH + margin, halfH - margin);
+            break;
+        }
+
+        const wallRotY = {
+          front: Math.PI,
+          back: 0,
+          left: -Math.PI / 2,
+          right: Math.PI / 2,
+        }[currentWall];
+
+        loadAndAddPainting(paintingData, point, wallRotY).then((mesh) => {
+          tempPaintings.push(mesh); // 나중에 제거할 대상 추적
+        });
+      } else {
+        console.warn("No intersection with wall.");
+      }
+      return; // 그림 작업 끝, 아래 intro용 드롭 실행 안함!
     }
-  })
+
+    // (2) 전시서문 프레임/플레인 드래그앤드롭
+    if (typeof draggedIntroType !== "undefined" && draggedIntroType) {
+      // draggedIntroType은 전역에서 썸네일 dragstart 때 "frame" 또는 "plane" 값으로 세팅
+      const rect = renderer.domElement.getBoundingClientRect();
+      const mouse = new THREE.Vector2(
+        ((e.clientX - rect.left) / rect.width) * 2 - 1,
+        -((e.clientY - rect.top) / rect.height) * 2 + 1
+      );
+      raycaster.setFromCamera(mouse, camera);
+
+      const wallMesh = scene.getObjectByName(currentWall);
+      if (!wallMesh) {
+        alert("벽을 찾을 수 없습니다. wall-nav 벽 이름 확인!");
+        draggedIntroType = null;
+        return;
+      }
+
+      const intersects = raycaster.intersectObject(wallMesh);
+      if (intersects.length === 0) {
+        draggedIntroType = null;
+        return;
+      }
+      const point = intersects[0].point.clone();
+
+      if (draggedIntroType === "frame") {
+        createIntroFrameBoxAt(point, currentWall);
+      } else if (draggedIntroType === "plane") {
+        createIntroWallPlaneAt(point, currentWall);
+      }
+      draggedIntroType = null;
+      return;
+    }
+
+    // (3) 필요시, 다른 드롭 타입이 있다면 여기에 추가...
+  });
+
 
   controls = new OrbitControls(camera, renderer.domElement)
   controls.target.set(0, PAINTING_Y_OFFSET, 0)
@@ -229,6 +330,10 @@ async function init() {
       closeInfo()
     } else {
       showInfo()
+    }
+    /* 작품선택 모드일 때만 상세 정보 덮어쓰기 */
+    if (isPaintingMode && selectedPainting) {
+      updatePaintingInfo(selectedPainting);   // ← 이제 mesh 하나만 넘깁니다
     }
   }
   document
@@ -275,6 +380,15 @@ async function init() {
 
   // 마우스 드래그로 그림 위치 이동
   renderer.domElement.addEventListener("pointerdown", (e) => {
+
+    const panel = document.getElementById("settingsPanel");
+    if (!panel.classList.contains("open")) return;          // 패널이 닫혀 있으면 무시
+
+    const isMain = document.getElementById("panel-main").classList.contains("active");
+    if (isMain) {                                           // 메인 메뉴일 때만
+      document.getElementById("settingsToggle").click();    // 기존 토글 재사용
+    } 
+
     if (!isPaintingMode) return;
     pointerDownTime = Date.now();
     dragStartScreen = { x: e.clientX, y: e.clientY };
@@ -288,7 +402,8 @@ async function init() {
       -((e.clientY - rect.top) / rect.height) * 2 + 1
     );
     raycaster.setFromCamera(mouse, camera);
-    const hits = raycaster.intersectObjects(paintings);
+    const wallPaintings = paintings.filter(mesh => detectWall(mesh) === currentWall);
+    const hits = raycaster.intersectObjects(wallPaintings);
     if (hits.length > 0) {
       selectedPainting = hits[0].object;
     }
@@ -329,11 +444,8 @@ async function init() {
     selectedPainting = null;
   });
 
-
-
-
   renderer.domElement.addEventListener("pointermove", (e) => {
-    if (!isPaintingMode || !e.buttons || !dragStartScreen) return;
+    if (!isPaintingMode || !e.buttons & 1 || !dragStartScreen) return;
 
     const dx = e.clientX - dragStartScreen.x;
     const dy = e.clientY - dragStartScreen.y;
@@ -668,11 +780,33 @@ function showInfo() {
   document.getElementById("infoContent").innerHTML =
     `<h2>${data.title}</h2><p>${data.description}</p>`
   document.getElementById("infoModal").style.display = "block"
+
+  const mesh = paintings[currentPaintingIndex];
+  updatePaintingInfo(mesh);
+
+  // 작품선택모드일 때만 전역 클릭 차단 리스너 등록
+  if (isPaintingMode) {
+    document.addEventListener('mousedown', globalInputBlocker, true);
+    document.addEventListener('touchstart', globalInputBlocker, true);
+  }
 }
 
 function closeInfo() {
-  document.getElementById("infoModal").style.display = "none"
+  document.getElementById("infoModal").style.display = "none";
+
+  // 리스너 해제(작품선택모드일 때만)
+  document.removeEventListener('mousedown', globalInputBlocker, true);
+  document.removeEventListener('touchstart', globalInputBlocker, true);
+
+  // 작품선택모드(또는 서문쓰기모드)일 때만 버튼 복원
+  if ((isPaintingMode || isIntroMode) && selectedPainting) {
+    showPaintingEditButtons(selectedPainting);
+  } else {
+  hidePaintingEditButtons();      // 관람 모드라면 버튼 숨김 유지
+  // 또는 startEditingPainting(selectedPainting);
+  }
 }
+
 
 function navigateLeft() {
   if (isCameraMoving || paintings.length === 0) return
@@ -699,6 +833,10 @@ document.getElementById("settingsToggle").addEventListener("click", () => {
   const currentId = currentActive?.id
 
   if (isOpen) {
+    if (currentId === 'panel-background' && !skipCancelBackground) {
+      restoreTextureSet(); // ← 톱니로 닫을 때 롤백
+    }
+
     if (currentId === "panel-paintings") {
       cancelPaintingChanges() // 작품선택 중이면 복원
       updateWallView() // 시점 복원 (카메라 고정 해제)
@@ -706,11 +844,21 @@ document.getElementById("settingsToggle").addEventListener("click", () => {
       endEditingPainting() // 작품선택(배치)모드 종료
       isPaintingMode = false // 명시적으로 모드 비활성화
       document.getElementById("navButtons").classList.remove("slide-down"); // 하단 버튼
-      restoreTextureSet()
     }
+
+    // ───────── panel-intro 롤백 ─────────
+    if (currentId === "panel-intro" && !skipCancelIntro) {
+      cancelIntroChanges(); // applyIntroButton이 눌리지 않았다면 롤백
+      isIntroMode = false;
+    }
+    // 슬라이드 상테를 메인으로 되돌린 뒤 패널 닫기
+    showPanel("panel-main")
     panel.classList.remove("open")
     gear.classList.remove("moving")
   } else {
+    if (document.getElementById("infoModal").style.display === "block") {
+      closeInfo();
+    }
     showPanel("panel-main") // 설정창 열 때 항상 메인 패널부터 시작
     panel.classList.add("open")
     gear.classList.add("moving")
@@ -1126,10 +1274,36 @@ document
 
     applyTextureSet(selectedTextureSet)
     alert("배경이 적용되었습니다!")
+    skipCancelBackground = true; // 롤백 스킵
+    showPanel('panel-main'); // 메인으로 복귀
+    skipCancelBackground = false; // 플래그 초기화
 
     localStorage.setItem("selectedTextureSet", selectedTextureSet)
   })
 
+// (1) '적용' 버튼 클릭 핸들러를 분리한 named function
+function handleApplyPaintings() {
+  isPaintingMode = false;
+  controls.enabled = true;
+
+  originalPaintings = [...paintings];
+  originalPaintingsState = paintings.map(mesh => ({
+    mesh,
+    position: mesh.position.clone(),
+    rotation: mesh.rotation.clone(),
+    scale: mesh.scale.clone()
+  }));
+  tempPaintings = [];
+
+  updatePaintingOrderByPosition();
+  hidePaintingEditButtons();
+
+  skipCancelPainting = true;
+  showPanel("panel-main");
+  skipCancelPainting = false;
+}
+
+// (2) populatePaintingGrid: 썸네일 그리드 생성 + 이벤트 등록
 function populatePaintingGrid() {
   const grid = document.getElementById("paintingGrid")
   if (!grid) return
@@ -1155,29 +1329,15 @@ function populatePaintingGrid() {
       e.dataTransfer.setData("painting", JSON.stringify(painting)); // 객체 전체 전달
     })
 
-    grid.appendChild(thumb)
+    grid.appendChild(thumb);
+  });
 
-    document
-      .getElementById("applyPaintingsButton")
-      .addEventListener("click", () => {
-        isPaintingMode = false
-        controls.enabled = true
-        originalPaintings = [...paintings] // 확정
-        // 현재 위치를 확정 저장
-        originalPaintingsState = paintings.map((mesh) => ({
-          mesh: mesh,
-          position: mesh.position.clone(),
-          rotation: mesh.rotation.clone(),
-          scale: mesh.scale.clone(),
-        }))
-        tempPaintings = []
-        updatePaintingOrderByPosition() // 확인 버튼 클릭 시 순서 재정렬
-        // 설정 패널 전환 시 복원 방지
-        skipCancelPainting = true
-        showPanel("panel-main") // 설정 메인으로 복귀
-        skipCancelPainting = false
-      })
-  })
+  // 4) '적용' 버튼 이벤트: 반복문 밖에서 한 번만 등록
+  const applyBtn = document.getElementById("applyPaintingsButton");
+  applyBtn.removeEventListener("click", handleApplyPaintings);
+  applyBtn.addEventListener   ("click", handleApplyPaintings);
+
+  // 5) 페이징 버튼 상태 업데이트
   updatePageButtons();
 }
 
@@ -1205,45 +1365,43 @@ function updatePageButtons() {
   next.disabled = currentPage >= maxPage;
 }
 
-
+// 현재 선택된 벽 이름들
 let currentWall = "front" // 초기값
 const wallNames = ["front", "right", "back", "left"]
 
+// 1) 모든 .current-wall-label 텍스트를 한 번에 갱신
 function updateAllWallLabels() {
-  document.querySelectorAll("#currentWallLabel").forEach(label => {
-    label.textContent = currentWall.charAt(0).toUpperCase() + currentWall.slice(1);
-  });
+  const labelText = currentWall.charAt(0).toUpperCase() + currentWall.slice(1);
+  document.querySelectorAll(".current-wall-label")
+          .forEach(label => label.textContent = labelText);
 }
 
+// 2) 좌/우 네비 버튼에 클릭 리스너 등록
 function addWallNavListeners() {
-  document.querySelectorAll("#wallLeftButton").forEach(btn => {
-    btn.onclick = () => {
-      const idx = wallNames.indexOf(currentWall);
-      currentWall = wallNames[(idx - 1 + wallNames.length) % wallNames.length];
-      updateWallView();
-    };
-  });
-  document.querySelectorAll("#wallRightButton").forEach(btn => {
-    btn.onclick = () => {
-      const idx = wallNames.indexOf(currentWall);
-      currentWall = wallNames[(idx + 1) % wallNames.length];
-      updateWallView();
-    };
-  });
-}
-window.addEventListener("DOMContentLoaded", () => {
-  addWallNavListeners();
-});
+  document.querySelectorAll(".wall-left-btn")
+          .forEach(btn => btn.addEventListener("click", () => {
+            const idx = wallNames.indexOf(currentWall);
+            currentWall = wallNames[(idx - 1 + wallNames.length) % wallNames.length];
+            updateWallView();
+          }));
 
+  document.querySelectorAll(".wall-right-btn")
+          .forEach(btn => btn.addEventListener("click", () => {
+            const idx = wallNames.indexOf(currentWall);
+            currentWall = wallNames[(idx + 1) % wallNames.length];
+            updateWallView();
+          }));
+}
+
+// 3) 카메라와 레이블을 함께 갱신
 function updateWallView() {
-  // 모든 wall-nav 라벨을 한 번에 바꾼다!
-  document.querySelectorAll("#currentWallLabel").forEach(label => {
-    label.textContent = currentWall.charAt(0).toUpperCase() + currentWall.slice(1);
-  });
+  // 레이블 먼저
+  updateAllWallLabels();
 
   // 카메라 시점 고정
-  let pos = new THREE.Vector3()
-  let look = new THREE.Vector3(0, PAINTING_Y_OFFSET, 0)
+  const pos = new THREE.Vector3()
+  const look = new THREE.Vector3(0, PAINTING_Y_OFFSET, 0)
+
   switch (currentWall) {
     case "front":
       pos.set(0, PAINTING_Y_OFFSET, -ROOM_DEPTH * 0.1)
@@ -1277,6 +1435,45 @@ function updateWallView() {
     .start()
 }
 
+// 4) 초기화: DOM 로드 후 한 번만 실행
+window.addEventListener("DOMContentLoaded", () => {
+  updateAllWallLabels();  // 처음 레이블 세팅
+  addWallNavListeners();  // 버튼 리스너 등록
+
+  // 전시서문 프레임 썸네일 dragstart
+  const frameThumb = document.getElementById("introFrameThumb");
+  if (frameThumb) {
+    frameThumb.addEventListener("dragstart", (e) => {
+      // 전역 변수에 타입 저장
+      draggedIntroType = "frame";
+      // drop 시 식별용 데이터도 전송
+      e.dataTransfer.setData("text/plain", "frame");
+    });
+  }
+
+  // 전시서문 플레인 썸네일 dragstart
+  const planeThumb = document.getElementById("introPlaneThumb");
+  if (planeThumb) {
+    planeThumb.addEventListener("dragstart", (e) => {
+      draggedIntroType = "plane";
+      e.dataTransfer.setData("text/plain", "plane");
+    });
+  }
+
+  const applyIntroBtn = document.getElementById("applyIntroButton");
+  if (applyIntroBtn) {
+    applyIntroBtn.addEventListener("click", () => {
+      // 전시서문쓰기 모드에서만 롤백 방지 플래그 사용
+      skipCancelIntro = true;
+      safeUpdatePaintingOrder(); // intro 확정 후 정렬
+      // 패널 닫고 메인으로 복귀
+      showPanel("panel-main");
+      // 플래그 리셋
+      skipCancelIntro = false;
+    });
+  }
+});
+
 function cancelPaintingChanges() {
   for (let mesh of tempPaintings) {
     scene.remove(mesh)
@@ -1285,12 +1482,17 @@ function cancelPaintingChanges() {
   tempPaintings = []
 
   // 기존 그림 위치 복원
-  originalPaintingsState.forEach(({ mesh, position, rotation, scale }) => {
+  originalPaintingsState.forEach(({ mesh, position, rotation, scale, story }) => {
     mesh.position.copy(position)
     mesh.rotation.copy(rotation)
     if (scale) {mesh.scale.copy(scale);
     } else if (mesh.userData.originalScale) {
       mesh.scale.copy(mesh.userData.originalScale); // 크기 조절 복원
+    }
+    // ――― 작품 이야기 롤백 ―――
+    mesh.userData.story = story;
+    if (mesh.userData.data) {
+      mesh.userData.data.description = story;
     }
   })
 }
@@ -1304,20 +1506,52 @@ function startEditingPainting(mesh) {
 }
 
 function showPaintingEditButtons(mesh) {
-  if (!isPaintingMode || !mesh) return;
-  isResizingPainting = false; // 편집 진입할 때는 항상 false
-  editingButtonsDiv.innerHTML = `
-    <button id="resizeBtn">작품크기조절</button>
-    <button id="deleteBtn">삭제</button>
-  `;
-  editingButtonsDiv.style.display = "flex";
+  // 현재 모드(작품선택/서문쓰기)를 구분
+  // isPaintingMode, isIntroMode 등 상태 변수는 패널 전환 함수 등에서 반드시 관리!
+  // mesh.userData.type === 'intro-frame' 또는 'intro-plane'이면 서문
 
-  document.getElementById("resizeBtn").onclick = () => {
-    showResizeSizeButtons(mesh);
+  // 버튼 영역 비우기
+  editingButtonsDiv.innerHTML = '';
+
+  // 크기조절 버튼
+  const resizeBtn = document.createElement('button');
+  resizeBtn.innerText = '크기조절';
+  resizeBtn.onclick = () => showResizeSizeButtons(mesh);
+  editingButtonsDiv.appendChild(resizeBtn);
+
+  // 삭제 버튼
+  const deleteBtn = document.createElement('button');
+  deleteBtn.innerText = '삭제';
+  deleteBtn.onclick = () => deletePainting(mesh);
+  editingButtonsDiv.appendChild(deleteBtn);
+
+  // 작품선택모드에서 "작품이야기" 버튼 추가
+  if (mesh.userData.isPainting && !mesh.userData.type?.startsWith("intro")) {
+    const storyBtn = document.createElement('button');
+    storyBtn.innerText = '작품이야기';
+    storyBtn.onclick = () => showPaintingStoryEditor(mesh);
+    editingButtonsDiv.appendChild(storyBtn);
   }
-  document.getElementById("deleteBtn").onclick = () => {
-    deletePainting(mesh);
+
+  // 프레임서문(intro-frame)이면서, 전시서문쓰기 모드일 때만 "프레임색상" 버튼 추가
+  if (mesh.userData.type === 'intro-frame' && isIntroMode) {  
+    const colorBtn = document.createElement('button');
+    colorBtn.innerText = '프레임색상';
+    colorBtn.onclick = () => showFrameColorPicker(mesh);
+    editingButtonsDiv.appendChild(colorBtn);
   }
+
+  // 서문 + 서문쓰기모드라면 텍스트입력 버튼도 추가
+  const isIntro = mesh.userData.type === 'intro-frame' || mesh.userData.type === 'intro-plane';
+  if (isIntro && isIntroMode) {
+    const editTextBtn = document.createElement('button');
+    editTextBtn.innerText = '텍스트입력';
+    editTextBtn.onclick = () => focusIntroWithEditor(mesh); // 아래 별도 정의
+    editingButtonsDiv.appendChild(editTextBtn);
+  }
+
+  // 버튼 영역 보여주기
+  editingButtonsDiv.style.display = 'block';
 }
 
 function endEditingPainting() {
@@ -1344,11 +1578,17 @@ function endEditingPainting() {
   isEditingPainting = false
   dragging = false // 명시적 초기화
   hidePaintingEditButtons(); // 편집종료 시 버튼 숨김
+
+  // === Quill 오버레이도 항상 닫기! ===
+  if (typeof introTextEditorOverlay !== 'undefined') {
+    introTextEditorOverlay.style.display = 'none';
+    editingIntroMesh = null;
+  }  
 }
 
+// 편집툴 숨기기 함수
 function hidePaintingEditButtons() {
-  editingButtonsDiv.style.display = "none";
-  editingButtonsDiv.innerHTML = "";
+  editingButtonsDiv.style.display = 'none';
 }
 
 function showResizeSizeButtons(mesh) {
@@ -1372,7 +1612,8 @@ function showResizeSizeButtons(mesh) {
     mesh.userData.scaleValue = 1;
   }
 
-  let currentScaleValue = mesh.userData.scaleValue;
+  const orig = mesh.userData.originalScale;
+  let currentScaleValue = mesh.scale.x / orig.x;
 
   editingButtonsDiv.innerHTML = `
     <div style="display:flex;gap:8px;justify-content:center;">
@@ -1393,7 +1634,6 @@ function showResizeSizeButtons(mesh) {
       btn.style.background = "";
     }
   });
-
 
   let tempScaleValue = currentScaleValue; // 임시 선택값
 
@@ -1426,6 +1666,16 @@ function showResizeSizeButtons(mesh) {
       showOutline(mesh); // 테두리 다시 만듦
     }
 
+    // 크기조절 시 텍스트 크기도 비율에 맞게 갱신
+    if (mesh.userData.text) {
+      updateIntroTextPlaneFromHTML(mesh, mesh.userData.html);
+    } else if (mesh.userData.text) {
+      updateIntroTextPlane(mesh, mesh.userData.text, {
+        fontFamily: mesh.userData.fontFamily,
+        fontSize: mesh.userData.fontSize,
+        color: mesh.userData.fontColor
+      });
+    }
     // 이미 scale 적용됨
     isResizingPainting = false;
     showPaintingEditButtons(mesh);
@@ -1453,6 +1703,7 @@ function deletePainting(mesh) {
   const idx = paintings.indexOf(mesh);
   if (idx !== -1) paintings.splice(idx, 1);
   endEditingPainting();
+  hidePaintingEditButtons();
 }
 
 function updatePaintingOrderByPosition() {
@@ -1522,15 +1773,998 @@ function removeOutline() {
   }
 }
 
+document.getElementById("introFrameThumb").addEventListener("dragstart", (e) => {
+  draggedIntroType = "frame";
+});
+document.getElementById("introPlaneThumb").addEventListener("dragstart", (e) => {
+  draggedIntroType = "plane";
+});
+
+function createIntroFrameBoxAt(position, currentWall) {
+  const boxWidth = 3, boxHeight = 3, boxDepth = 0.1; // 작품과 두께 동일
+  const geometry = new THREE.BoxGeometry(boxWidth, boxHeight, boxDepth);
+  const materials = [
+    new THREE.MeshStandardMaterial({ color: 0xffffff }), // 오른쪽
+          new THREE.MeshStandardMaterial({ color: 0xffffff }), // 왼쪽
+          new THREE.MeshStandardMaterial({ color: 0xffffff }), // 위
+          new THREE.MeshStandardMaterial({ color: 0xffffff }), // 아래
+          new THREE.MeshBasicMaterial({ color: 0xffffff }), // 앞 (그림)
+          new THREE.MeshStandardMaterial({ color: 0xffffff }), // 뒤
+  ];
+  const box = new THREE.Mesh(geometry, materials);
+  box.position.copy(position);
+
+  let pos = position.clone();
+  let rotY = getWallRotationY(currentWall);
+  box.position.copy(pos);
+  box.rotation.y = rotY;
+  // 작품처럼 정면 방향으로 밀기
+  const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(box.quaternion);
+  box.position.add(forward.multiplyScalar(boxDepth / 2));
+
+  box.userData = {
+    isPainting : true,          // ← 탐색·줌 대상
+    type       : "intro-frame",
+    /*data : {                    // infoModal 기본 데이터
+      title       : "전시 서문",
+      description : "(내용 없음)"
+    }*/
+  };
+
+  // 이전에 저장된 색상이 있으면 앞면 색 반영
+  if (box.userData.frameColor) {
+    box.material[4].color.set(box.userData.frameColor);
+  }
+
+  scene.add(box);
+  paintings.push(box);
+  if (isIntroMode) tempIntroMeshes.push(box);
+  safeUpdatePaintingOrder();
+  return box;
+}
+
+function createIntroWallPlaneAt(position, currentWall) {
+  const planeWidth = 3, planeHeight = 3;
+  const geometry = new THREE.PlaneGeometry(planeWidth, planeHeight);
+  const material = new THREE.MeshBasicMaterial({
+    color: 0xcde0ff,
+    transparent: true,
+    opacity: 0.8,
+    side: THREE.DoubleSide
+  });
+  const plane = new THREE.Mesh(geometry, material);
+
+  // 1. 위치 지정 (point는 이미 벽 앞)
+  plane.position.copy(position);
+
+  // 2. 회전 (작품 드롭과 완전히 동일하게)
+  let rotY = getWallRotationY(currentWall); // 아래에서 함수도 참고
+  plane.rotation.y = rotY;
+
+  // 3. 벽 정면 방향으로 plane의 두께(혹은 약간의 offset)만큼 더 빼기
+  // (작품 드롭과 동일하게 "앞면이 실내로" 향하게)
+  const offset = 0.001; // 플레인이 벽에 파묻히지 않게
+  const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(plane.quaternion);
+  plane.position.add(forward.multiplyScalar(offset));
+
+  plane.userData = {
+    isPainting : true,          // ← 탐색 대상
+    type       : "intro-plane",
+    /*data : {                    // infoModal용 최소 데이터
+      title       : "전시 서문",
+      description : "(내용 없음)"
+    }*/
+  };
+
+  scene.add(plane);
+  if (isIntroMode) tempIntroMeshes.push(plane);
+  paintings.push(plane);
+  safeUpdatePaintingOrder();
+  return plane;
+}
+  
+function getWallRotationY(currentWall) {
+  switch (currentWall) {
+    case "front": return Math.PI;
+    case "back":  return 0;
+    case "left":  return -Math.PI/2;
+    case "right": return Math.PI/2;
+    default:      return 0;
+  }
+}
+
+// ---- Quill 기반 텍스트 입력 오버레이 ----
+
+// Quill 에디터 준비(최초 1번)
+
+function setupQuillEditor() {
+  if (!quill) {
+    quill = new Quill('#quillEditor', {
+      modules: {
+        toolbar: [
+          [{ 'font': [] }, { 'size': [] }],
+          ['bold', 'italic', 'underline', { 'color': [] }],
+          [{ 'align': [] }]
+        ]
+      },
+      theme: 'snow'
+    });
+  }
+}
+
+// 텍스트 입력 오버레이 열기 -> mesh 표면의 중앙 지점을 2D 화면 좌표로 투영하는 방식
+function showOverlayEditor(mesh) {
+  hidePaintingEditButtons();
+  setEditorOverlayToPlane(mesh);
+
+  // 새 편집 대상으로 업데이트
+  editingIntroMesh = mesh;
+  setupQuillEditor();
+
+  /** 1. 먼저 모든 text-change 리스너 제거 */
+  quill.off('text-change');
+
+  /** 2. 콘텐츠 로드/초기화 (silent 옵션으로 이벤트 방지) */
+  if (mesh.userData.html && mesh.userData.html.trim() !== "") {
+    // 기존 글이 있으면 붙여 넣기
+    quill.clipboard.dangerouslyPasteHTML(mesh.userData.html, 'silent');
+    editingIntroHTML = mesh.userData.html;
+  } else {
+    // 빈 글로 초기화
+    quill.setText('', 'silent');
+    editingIntroHTML = '';
+  }
+
+  /** 3. 새 리스너 등록 */
+  quill.on('text-change', function() {
+    editingIntroHTML = quill.root.innerHTML; // 임시 변수에만 저장
+    updateIntroTextPlaneFromHTML(mesh, editingIntroHTML); // 미리보기
+  })
+
+  // 편집 모드 진입시 즉시 미리보기
+  updateIntroTextPlaneFromHTML(mesh, quill.root.innerHTML);
+
+  // 3D→2D 변환으로 화면에 띄울 위치 계산
+  let worldPos;
+  if (mesh.geometry.parameters && mesh.geometry.parameters.depth !== undefined) {
+    worldPos = mesh.localToWorld(
+      new THREE.Vector3(0, 0, mesh.geometry.parameters.depth / 2 + 0.02)
+    );
+  } else {
+    worldPos = mesh.localToWorld(new THREE.Vector3(0, 0, 0.03));
+  }
+  worldPos.project(camera);
+  const sx = worldPos.x * window.innerWidth / 2 + window.innerWidth / 2;
+  const sy = -worldPos.y * window.innerHeight / 2 + window.innerHeight / 2;
+
+  // 오버레이 띄우기
+  introTextEditorOverlay.style.display = 'block';
+  introTextEditorOverlay.style.left = (sx - 180) + 'px';  // 에디터 너비의 절반
+  introTextEditorOverlay.style.top = (sy - 70) + 'px';    // 에디터 높이의 절반
+}
+
+// --- 적용/확인 버튼 이벤트 ---
+introTextApplyBtn.onclick = function() {
+  if (editingIntroMesh) {
+    // Quill에서 HTML을 가져와 userData에 저장
+    editingIntroMesh.userData.html = quill.root.innerHTML;
+    updateIntroTextPlaneFromHTML(editingIntroMesh, quill.root.innerHTML);
+  }
+  introTextEditorOverlay.style.display = 'none';
+  zoomBackOut();
+  showPaintingEditButtons(editingIntroMesh); // 편집 메뉴 복원
+  editingIntroMesh = null;
+};
+
+// --- 취소 버튼 이벤트 ---
+introTextCancelBtn.onclick = function() {
+  if (editingIntroMesh) {
+    updateIntroTextPlaneFromHTML(editingIntroMesh, editingIntroMesh.userData.html || "");
+  }
+  introTextEditorOverlay.style.display = 'none';
+  zoomBackOut();
+  showPaintingEditButtons(editingIntroMesh); // 편집 메뉴 복원
+  editingIntroMesh = null;
+};
+
+// --- Quill의 HTML을 3D plane/canvas에 그리는 함수(기본 구조) ---
+function updateIntroTextPlaneFromHTML(mesh, html) {
+  // 벽면서문 배경 투명도 업데이트
+  updateIntroWallPlaneOpacity(mesh, html);
+  // 기존 텍스트 plane 제거
+  if (mesh.userData.textPlane) {
+    mesh.remove(mesh.userData.textPlane);
+    mesh.userData.textPlane.material.map.dispose();
+    mesh.userData.textPlane.material.dispose();
+    mesh.userData.textPlane.geometry.dispose();
+    mesh.userData.textPlane = null;
+  }
+  if (!html || html.trim() === "") return;
+
+  // 플레인의 실측(width, height, scale)로 캔버스/텍스트 계산
+  const geom = mesh.geometry.parameters;
+  const DPI = 2;
+  const w = geom.width || 3;
+  const h = geom.height || 3;
+  const RATIO = w / h;
+  const BASE = 1024;
+  const canvasW = Math.round(BASE * RATIO) * DPI;
+  const canvasH = BASE * DPI;
+  const marginY = canvasH * 0.10;// 상하 여백
+  const marginX = canvasW * 0.12;// 좌우 여백
+  const textAreaHeight = canvasH - marginY * 2;
+  const textAreaWidth = canvasW - marginX * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasW;
+  canvas.height = canvasH;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // 폰트크기 자동 조정: 플레인에 꽉 맞게!
+  const minFontPx = 24 * DPI;
+  const maxFontPx = Math.round(canvasH * 0.13);
+  let fontRatio = maxFontPx;
+  let allLineHeights = [], linesAll = [], totalTextHeight;
+  let paragraphs, maxTextWidth;
+
+  while (fontRatio > minFontPx) {
+    allLineHeights = [];
+    linesAll = [];
+    // html 파싱
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    paragraphs = tempDiv.querySelectorAll('p, div');
+    maxTextWidth = canvasW * 0.8;
+
+    paragraphs.forEach(para => {
+      let styledSpans = parseParagraphToSpans(para, DPI, fontRatio);
+      let lines = wrapStyledText(ctx, styledSpans, maxTextWidth);
+      lines.forEach(lineArr => {
+        let maxFontPx = Math.max(...lineArr.map(span => {
+          const m = span.font.match(/(\d+)px/);
+          return m ? parseInt(m[1]) : fontRatio;
+        }));
+        let thisLineHeight = Math.round(maxFontPx * 1.35);
+        allLineHeights.push(thisLineHeight);
+        linesAll.push({
+          lineArr,
+          align: (() => {
+            let align = "left";
+            if (para.style.textAlign) align = para.style.textAlign;
+            if (para.classList && para.classList.contains("ql-align-center")) align = "center";
+            if (para.classList && para.classList.contains("ql-align-right")) align = "right";
+            return align;
+          })()
+        });
+      });
+    });
+
+    totalTextHeight = allLineHeights.reduce((a, b) => a + b, 0);
+    if (totalTextHeight <= canvasH - marginY * 2) break;
+    fontRatio -= 4; // 조금씩 줄여가며 반복
+  }
+
+  let curY = (canvasH - totalTextHeight) / 2;
+
+  // 출력
+  for (let i = 0; i < linesAll.length; ++i) {
+    let {lineArr, align} = linesAll[i];
+    let thisLineHeight = allLineHeights[i];
+    let lineWidth = lineArr.reduce((sum, span) => {
+      ctx.font = span.font;
+      return sum + ctx.measureText(span.text).width;
+    }, 0);
+    let x = canvasW / 2;
+    if (align === 'left') x = canvasW * 0.1;
+    if (align === 'right') x = canvasW * 0.9 - lineWidth;
+    if (align === 'center') x = (canvasW - lineWidth) / 2;
+    let curX = x;
+    lineArr.forEach(span => {
+      ctx.font = span.font;
+      ctx.fillStyle = span.color;
+      ctx.textBaseline = "top";
+      ctx.fillText(span.text, curX, curY);
+      // 밑줄
+      if (span.textDecoration && span.textDecoration.includes("underline")) {
+        let textWidth = ctx.measureText(span.text).width;
+        let y = curY + ctx.measureText('M').actualBoundingBoxAscent + 4;
+        ctx.strokeStyle = span.color;
+        ctx.beginPath();
+        ctx.moveTo(curX, y);
+        ctx.lineTo(curX + textWidth, y);
+        ctx.stroke();
+      }
+      curX += ctx.measureText(span.text).width;
+    });
+    curY += thisLineHeight;
+  }
+
+  // plane 텍스처로 적용
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+
+  let planeWidth = geom.width * 0.9;
+  let planeHeight = geom.height * 0.9;
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(planeWidth, planeHeight),
+    mat
+  );
+  // plane 위치(박스 표면 살짝 앞에)
+  let z = 0.001;
+  if (geom && geom.depth !== undefined) {
+    z = geom.depth / 2 + 0.001;
+  }
+  plane.position.set(0, 0, z);
+  mesh.add(plane);
+  mesh.userData.textPlane = plane;
+}
+
+function updateIntroTextPlane(mesh, text, style = {}) {
+  if (mesh.userData.textPlane) {
+    mesh.remove(mesh.userData.textPlane);
+    mesh.userData.textPlane.material.map.dispose();
+    mesh.userData.textPlane.material.dispose();
+    mesh.userData.textPlane.geometry.dispose();
+    mesh.userData.textPlane = null;
+  }
+  if (!text || text.trim() === "") return;
+
+  // 1. geometry 비율 기반 canvas 사이즈 산출
+  const geom = mesh.geometry.parameters;
+  const DPI = 2;
+  const w = geom.width || 3;
+  const h = geom.height || 3;
+  const RATIO = w / h;
+  const BASE = 1024;
+  const canvasW = Math.round(BASE * RATIO) * DPI;
+  const canvasH = BASE * DPI;
+  const marginY = canvasH * 0.10;// 상하 여백
+  const marginX = canvasW * 0.12;// 좌우 여백
+  const textAreaHeight = canvasH - marginY * 2;
+  const textAreaWidth = canvasW - marginX * 2;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvasW;
+  canvas.height = canvasH;
+  const ctx = canvas.getContext('2d');
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+  // 2. 스타일 파라미터 적용
+  const baseFontSize = style.fontSize || mesh.userData.fontSize || 26;
+  const fontSize = baseFontSize * DPI; // 고해상도
+  const fontFamily = style.fontFamily || mesh.userData.fontFamily || 'Nanum Gothic';
+  const color = style.color || mesh.userData.fontColor || "#222";
+  const lineHeight = fontSize + 8 * DPI;
+
+  ctx.font = `bold ${fontSize}px "${fontFamily}", sans-serif`;
+  ctx.fillStyle = color;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // 3. 텍스트 중앙에 줄별로 그리기
+  const lines = text.split('\n');
+  const startY = canvas.height / 2 - ((lines.length - 1) * lineHeight) / 2;
+  lines.forEach((line, i) => {
+    ctx.fillText(line, canvas.width / 2, startY + i * lineHeight);
+  });
+
+  const tex = new THREE.CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+
+  // [2] plane geometry도 크기별 고정값 사용 (0.9는 여백)
+  let planeWidth = mesh.geometry.parameters.width * 0.9;
+  let planeHeight = mesh.geometry.parameters.height * 0.9;
+  const plane = new THREE.Mesh(
+    new THREE.PlaneGeometry(planeWidth, planeHeight),
+    mat
+  );
+
+  // [3] plane 위치 - 박스 표면에 살짝
+  let z = 0.001;
+  if (geom.depth !== undefined) z = geom.depth / 2 + 0.001;
+  plane.position.set(0, 0, z);
+
+  mesh.add(plane);
+  mesh.userData.textPlane = plane;
+}
+
+// 배율값과 폰트크기/줄간격을 매핑
+const FONT_SIZE_TABLE = {
+  0.5: 32,   // 6호
+  0.67: 40,  // 12호
+  1: 54,     // 25호(기본)
+  1.5: 72,   // 50호
+  2: 96      // 100호
+};
+const LINE_HEIGHT_TABLE = {
+  0.5: 40,
+  0.67: 48,
+  1: 66,
+  1.5: 84,
+  2: 120
+};
+
+function setEditorOverlayToPlane(mesh) {
+  const geom = mesh.geometry.parameters;
+  // 1. 3D 플레인 4모서리 계산
+  const corners = [
+    new THREE.Vector3(-geom.width/2,  geom.height/2, 0),
+    new THREE.Vector3( geom.width/2,  geom.height/2, 0),
+    new THREE.Vector3(-geom.width/2, -geom.height/2, 0),
+    new THREE.Vector3( geom.width/2, -geom.height/2, 0),
+  ];
+  corners.forEach(v => mesh.localToWorld(v));
+  // 2. 화면 2D로 변환
+  const toScreen = v => {
+    v.project(camera);
+    return {
+      x: (v.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-v.y * 0.5 + 0.5) * window.innerHeight
+    };
+  };
+  const s = corners.map(toScreen);
+  // 3. 오버레이 크기/위치 산출
+  const left = Math.min(...s.map(p => p.x));
+  const right = Math.max(...s.map(p => p.x));
+  const top = Math.min(...s.map(p => p.y));
+  const bottom = Math.max(...s.map(p => p.y));
+  const width = right - left;
+  const height = bottom - top;
+  // 4. 오버레이 스타일 적용 (16:9 직사각형)
+  const overlay = document.getElementById('introTextEditorOverlay');
+  const RATIO = 16 / 9; // 가로:세로
+  const MIN_W = 420; // 최소 폭(px)
+  const MIN_H   = 280; // 최소 높이(px)
+  const TOOLBAR = 120; // 툴바·버튼 영역 높이
+
+  // (1) 먼저 플레인 폭을 그대로 쓰고 높이를 16:9로 계산
+  let oW = width;
+  let oH = Math.round(width / RATIO);
+
+  // (2) 만약 계산된 높이가 플레인보다 커지면, 높이를 기준삼아 다시 계산
+  if (oH > height) {
+    oH = height;
+    oW = Math.round(height * RATIO);
+  }
+  if (oW < MIN_W) {
+  oW = MIN_W;
+  oH = Math.round(MIN_W / RATIO);
+  }
+  if (oH < MIN_H) {
+  oH = MIN_H;
+  oW = Math.round(MIN_H * RATIO);
+  }
+
+  // (3) 스타일 적용
+  overlay.style.width  = oW + "px";
+  overlay.style.height = oH + "px";
+  overlay.style.left   = (left + width  / 2 - oW / 2) + "px";
+  overlay.style.top    = (top  + height / 2 - oH / 2) + "px";
+
+  // Quill 본문 높이 = 전체높이 - 툴바·버튼
+  document.getElementById('quillEditor').style.cssText =
+    `width:100%;height:${oH - TOOLBAR}px;`;
+}
+
+// --- 여러 스타일 span 배열을 자동 줄바꿈으로 2차원 배열로 변환 (긴 단어까지 처리) ---
+function wrapStyledText(ctx, styledSpans, maxWidth) {
+  let lines = [];
+  let curLine = [];
+  let curLineWidth = 0;
+  styledSpans.forEach(span => {
+    ctx.font = span.font;
+    let words = span.text.split(/(\s+)/);
+    words.forEach(word => {
+      if (!word) return;
+      let wordWidth = ctx.measureText(word).width;
+      // 긴 단어(띄어쓰기 없는 긴 한글 등)도 줄바꿈 처리
+      if (wordWidth > maxWidth) {
+        let chars = word.split('');
+        chars.forEach(char => {
+          let charWidth = ctx.measureText(char).width;
+          if (curLineWidth + charWidth > maxWidth && curLine.length > 0) {
+            lines.push(curLine);
+            curLine = [];
+            curLineWidth = 0;
+          }
+          curLine.push({...span, text: char});
+          curLineWidth += charWidth;
+        });
+      } else {
+        if (curLineWidth + wordWidth > maxWidth && curLine.length > 0) {
+          lines.push(curLine);
+          curLine = [];
+          curLineWidth = 0;
+        }
+        curLine.push({...span, text: word});
+        curLineWidth += wordWidth;
+      }
+    });
+  });
+  if (curLine.length > 0) lines.push(curLine);
+  return lines;
+}
+
+function parseParagraphToSpans(para, DPI, fontRatio) {
+  let spans = [];
+  para.childNodes.forEach(node => {
+    let text = node.textContent || "";
+    let style = (node.nodeType === 1) ? node.style : {};
+    let color = style.color || "#222";
+    let fontWeight = style.fontWeight || "normal";
+    let fontStyle = style.fontStyle || "normal";
+    let fontSize;
+    if (style.fontSize) {
+      if (style.fontSize.endsWith('px')) fontSize = parseInt(style.fontSize) * DPI;
+      else if (style.fontSize.endsWith('em')) fontSize = parseFloat(style.fontSize) * 18 * DPI;
+    }
+    // Quill class 기준 크기 동적으로 조정
+    if (node.classList && node.classList.contains('ql-size-small'))  fontSize = Math.round(fontRatio * 0.6);
+    if (node.classList && node.classList.contains('ql-size-large'))  fontSize = Math.round(fontRatio * 1.5);
+    if (node.classList && node.classList.contains('ql-size-huge'))   fontSize = Math.round(fontRatio * 2.0);
+    if (!fontSize) fontSize = fontRatio; // 기본(normal)
+    if (node.nodeType === 1 && node.tagName === 'STRONG') fontWeight = "bold";
+    if (node.nodeType === 1 && node.tagName === 'EM') fontStyle = "italic";
+    let textDecoration = style.textDecoration || "";
+    if (node.nodeType === 1 && node.tagName === 'U') textDecoration += " underline";
+    let font = `${fontWeight} ${fontStyle} ${fontSize}px "Nanum Gothic", sans-serif`;
+    spans.push({text, color, font, textDecoration});
+  });
+  return spans;
+}
+
+function focusIntroWithEditor(mesh) {
+
+  // **현재 카메라 상태 저장** (줌인 전)
+  prevCameraPos = camera.position.clone();
+  prevControlsTarget = controls.target.clone();
+
+  // 서문 중심/하단 계산
+  const box = new THREE.Box3().setFromObject(mesh);
+  const center = box.getCenter(new THREE.Vector3());
+
+  const overlayHeight = 220; // 오버레이 실제 높이
+  const usableHeight = window.innerHeight - overlayHeight;
+  const vFOV = THREE.MathUtils.degToRad(camera.fov);
+  const objHeight = box.max.y - box.min.y;
+  let distance = (objHeight / 2) / Math.tan(vFOV / 2) * (window.innerHeight / usableHeight);
+  distance *= 2.5;
+  
+  let normal = new THREE.Vector3(0, 0, 1);
+  mesh.getWorldDirection(normal);
+  const camPos = center.clone().addScaledVector(normal, distance);
+
+  // 카메라는 항상 center를 바라봄
+  const camTween = {
+    x: camera.position.x,
+    y: camera.position.y,
+    z: camera.position.z
+  };
+  const lookTween = {
+    x: controls.target.x,
+    y: controls.target.y,
+    z: controls.target.z
+  };
+
+  isCameraMoving = true;
+  controls.enabled = false;
+
+  new TWEEN.Tween(camTween)
+    .to({ x: camPos.x, y: camPos.y, z: camPos.z }, 900)
+    .easing(TWEEN.Easing.Cubic.InOut)
+    .onUpdate(() => {
+      camera.position.set(camTween.x, camTween.y, camTween.z);
+    })
+    .start();
+
+  new TWEEN.Tween(lookTween)
+    .to({ x: center.x, y: center.y, z: center.z }, 900)
+    .easing(TWEEN.Easing.Cubic.InOut)
+    .onUpdate(() => {
+      controls.target.set(lookTween.x, lookTween.y, lookTween.z);
+      controls.update();
+    })
+    .onComplete(() => {
+      isCameraMoving = false;
+      controls.enabled = true;
+      
+      showOverlayEditorFixed(mesh)
+    })
+    .start();
+}
+
+function showOverlayEditorFixed(mesh) { // 오버레이 텍스트에디터 열기 -> 중앙 하단 고정
+  hidePaintingEditButtons();
+  setEditorOverlayToPlane(mesh);
+
+  // 새 편집 대상으로 업데이트
+  editingIntroMesh = mesh;
+  setupQuillEditor();
+
+  quill.off('text-change');
+  if (mesh.userData.html && mesh.userData.html.trim() !== "") {
+    quill.clipboard.dangerouslyPasteHTML(mesh.userData.html, 'silent');
+    editingIntroHTML = mesh.userData.html;
+  } else {
+    quill.setText('', 'silent');
+    editingIntroHTML = '';
+  }
+  quill.on('text-change', function() {
+    editingIntroHTML = quill.root.innerHTML;
+    updateIntroTextPlaneFromHTML(mesh, editingIntroHTML);
+  });
+  updateIntroTextPlaneFromHTML(mesh, quill.root.innerHTML);
+
+  const overlay = document.getElementById('introTextEditorOverlay');
+  overlay.style.display = 'block';
+  overlay.style.position = 'fixed';
+  overlay.style.left = '50%';
+  overlay.style.transform = 'translateX(-50%)';
+  overlay.style.zIndex = 1100;
+
+  const margin = 32; // 화면 하단에서 32px 띄움 (원하는 값으로 조정)
+  // 반드시 display: block 후에 높이 측정!
+  const { height: overlayHeight } = overlay.getBoundingClientRect();
+
+  // 브라우저 화면 하단에서 margin만큼 위로 (너무 위로 가지 않게 min값 적용)
+  let top = window.innerHeight - overlayHeight - margin;
+  if (top < margin) top = margin;
+  overlay.style.top = `${top}px`;
+}
+
+function isActuallyEmpty(html) {
+  if (!html) return true;
+  const stripped = html
+    .replace(/<br\s*\/?>/gi, "")
+    .replace(/<(p|div)>\s*<\/\1>/gi, "")
+    .replace(/&nbsp;/gi, "")
+    .replace(/\s+/g, "");
+  return stripped === "";
+}
+
+function updateIntroWallPlaneOpacity(mesh, html) {
+  // intro-plane만 적용
+  if (mesh.userData.type === 'intro-plane') {
+    let hasText = !isActuallyEmpty(html);
+    mesh.material.opacity = hasText ? 0 : 0.8;
+    mesh.material.transparent = true;
+  }
+}
+
+function showFrameColorPicker(mesh) {
+  // 기존 색상 백업
+  const prevColor = mesh.material[4].color.getHexString();
+
+  // 이미 열린 팔레트 있으면 중복 방지
+  if (document.getElementById('frameColorPalette')) return;
+
+  isColorPicking = true;
+
+  const palette = document.createElement('div');
+  palette.className = 'overlay-panel';
+  palette.id = 'frameColorPalette';
+
+  palette.addEventListener('mousedown', e => e.stopPropagation()); // 팔레트 안 클릭은 전역으로 퍼지지 않음 -> 파랑테두리 유지
+
+  // 팔레트 컨테이너 생성
+  const colors = [
+  '#ffffff', '#f8b400', '#fa5252', '#2061e6', '#12b886',
+  '#eeeeee', '#333333', '#a17a5b', '#ba9bf9'
+  ];
+
+  // 첫 줄: 5개, 둘째 줄: 4개 + 컬러피커
+  const colorRows = [colors.slice(0, 5), colors.slice(5, 9)];
+
+  const paletteDiv = document.createElement('div');
+  paletteDiv.className = 'color-palette';
+
+  colorRows.forEach((rowColors, rowIdx) => {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'color-row';
+
+    rowColors.forEach(color => {
+      const colorBtn = document.createElement('button');
+      colorBtn.className = 'color-pick-btn';
+      colorBtn.style.background = color;
+      colorBtn.addEventListener('click', () => {
+        mesh.material[4].color.set(color);
+        mesh.userData.frameColorTemp = color;
+        document.querySelectorAll('.color-pick-btn').forEach(btn => btn.classList.remove('selected'));
+        colorBtn.classList.add('selected');
+      });
+      rowDiv.appendChild(colorBtn);
+    });
+
+    // 두 번째 줄 마지막에 컬러피커 input
+    if (rowIdx === 1) {
+      // 무지개 버튼(임의컬러 선택)
+      const rainbowBtn = document.createElement('button');
+      rainbowBtn.className = 'color-pick-btn';
+      rainbowBtn.innerHTML = '🌈';
+      rainbowBtn.title = '임의 색상 선택';
+
+      const colorInput = document.createElement('input');
+      colorInput.type = 'color';
+      colorInput.style.display = 'none';
+
+      rainbowBtn.onclick = () => colorInput.click();
+
+      colorInput.addEventListener('input', e => {
+        mesh.material[4].color.set(e.target.value);
+        mesh.userData.frameColorTemp = e.target.value;
+        rainbowBtn.style.background = e.target.value;
+        rainbowBtn.textContent = ''; // 색상 선택 시 이모지 대신 색상만
+        document.querySelectorAll('.color-pick-btn').forEach(btn => btn.classList.remove('selected'));
+        rainbowBtn.classList.add('selected');
+      });
+
+      rowDiv.appendChild(rainbowBtn);
+      rowDiv.appendChild(colorInput);
+    }
+    paletteDiv.appendChild(rowDiv);
+  });
+  palette.appendChild(paletteDiv);
+
+
+  // 확인/취소 버튼
+  const okBtn = document.createElement('button');
+  okBtn.textContent = '확인';
+  okBtn.addEventListener('click', () => {
+    // 색상 확정: userData, DB 등에 저장
+    mesh.userData.frameColor = mesh.userData.frameColorTemp || ('#' + prevColor);
+    // 팔레트 닫기
+    document.body.removeChild(palette);
+    isColorPicking = false;
+    mesh.userData.frameColorTemp = null;
+    // 편집 버튼 복귀
+    showPaintingEditButtons(mesh);
+  });
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = '취소';
+  cancelBtn.addEventListener('click', () => {
+    // 취소: 기존 색상 복원
+    mesh.material[4].color.set('#' + prevColor);
+    mesh.userData.frameColorTemp = null;
+    document.body.removeChild(palette);
+    isColorPicking = false;
+    showPaintingEditButtons(mesh);
+  });
+
+  const buttonRow = document.createElement('div');
+  buttonRow.className = 'button-row';
+
+  buttonRow.appendChild(okBtn);
+  buttonRow.appendChild(cancelBtn);
+
+  palette.appendChild(buttonRow);
+
+  document.body.appendChild(palette);
+  // 편집 버튼 숨기기
+  editingButtonsDiv.style.display = 'none';
+}
+
+// "작품이야기" 버튼을 눌렀을 때 호출되는 함수
+function showPaintingStoryEditor(mesh) {
+  // 이미 열린 오버레이가 있으면 중복 생성 방지
+  if (document.getElementById('paintingStoryEditorOverlay')) return;
+  isStoryEditing = true;
+
+  // 버튼 숨기기
+  editingButtonsDiv.style.display = 'none';
+
+  // === 오버레이 패널 생성 ===
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay-panel';
+  overlay.id = 'paintingStoryEditorOverlay';
+
+  // 오버레이 클릭시 닫히지 않도록(e.stopPropagation)
+  overlay.addEventListener('click', (e) => {
+    e.stopPropagation();
+  });
+
+  // === 타이틀/설명 ===
+  const data = mesh.userData.data || {};
+  const title = document.createElement('div');
+  title.textContent = data.title || '(제목 없음)';
+  title.style.fontWeight = 'bold';
+  title.style.fontSize = '20px';
+  title.style.marginBottom = '14px';
+  overlay.appendChild(title);
+
+  // === Quill 에디터 컨테이너 생성 ===
+  const editorDiv = document.createElement('div');
+  editorDiv.id = 'paintingStoryQuill';
+  editorDiv.style.width = '280px';
+  editorDiv.style.height = '150px';
+  editorDiv.style.background = '#fff';
+  /*editorDiv.style.marginBottom = '16px';*/
+  overlay.appendChild(editorDiv);
+
+  // === 기존 작품설명(기본값) 불러오기 ===
+  // json에서 넘어온 설명: mesh.userData.data.description 등에서 가져옴
+  // (설명이 저장되어 있다면 최신값, 없으면 "")
+
+  let prevText = '';
+  if (mesh.userData.story) {
+    // 이미 사용자가 입력한 값이 있으면
+    prevText = mesh.userData.story;
+  } else if (mesh.userData.data && mesh.userData.data.description) {
+    // 최초에는 json에서 온 설명 사용
+    prevText = mesh.userData.data.description;
+  } else {
+    prevText = '';
+  }
+
+  // === Quill 에디터 실제 생성 ===
+  // 기존 intro/서문에서 쓰던 옵션 복사해서 붙여도 됨!
+  const quill = new Quill(editorDiv, {
+    theme: 'snow',
+    modules: {
+      toolbar: false
+    }
+  });
+
+  // 초기값 채우기
+  quill.root.innerHTML = prevText;
+
+  // === 버튼 영역 (확인/취소) ===
+  const buttonRow = document.createElement('div');
+  buttonRow.className = 'button-row';
+
+  // 확인 버튼
+  const okBtn = document.createElement('button');
+okBtn.textContent = '확인';
+okBtn.onclick = function() {
+  // 텍스트 저장(HTML)
+  const html = quill.root.innerHTML;
+  mesh.userData.story = html;
+
+  selectedPainting = mesh; 
+
+  // 필요하다면 mesh.userData.data.description = html; 도 가능!
+  if (overlay && overlay.parentNode) {
+    overlay.parentNode.removeChild(overlay);
+  }
+  // 외부클릭차단 해제 / 오버레이 제거
+  isStoryEditing = false;
+  // overlay.remove; ← 이 줄은 필요 없다면 삭제해도 됨
+
+  // 필요하면 작품정보(info) 새로고침/업데이트 함수 호출
+  updatePaintingInfo(mesh);
+
+  // **showPaintingEditButtons(mesh); 호출은 주석처리 또는 삭제!**
+  // showPaintingEditButtons(mesh);
+
+  // 대신, infoModal을 여기서 띄우세요!
+  showInfo(); // infoModal 오픈
+};
+buttonRow.appendChild(okBtn);
+
+
+  // 취소 버튼
+  const cancelBtn = document.createElement('button');
+  cancelBtn.textContent = '취소';
+  cancelBtn.onclick = function() {
+    if (overlay && overlay.parentNode) {
+    overlay.parentNode.removeChild(overlay);
+    }
+    // (3) 외부 클릭 차단 해제 & 오버레이 제거
+    isStoryEditing = false;
+    overlay.remove
+
+    showPaintingEditButtons(mesh);
+  };
+  buttonRow.appendChild(cancelBtn);
+
+  overlay.appendChild(buttonRow);
+
+  // === 오버레이를 body에 추가 ===
+  document.body.appendChild(overlay);
+
+  // === 필요시 에디터 자동 포커스 ===
+  setTimeout(() => {
+    quill.focus();
+    
+    // 1) 에디터 실제 렌더된 컨테이너 폭 측정
+    const editorWidth = overlay.querySelector('.ql-container').getBoundingClientRect().width;
+
+    // 2) infoModal의 컨텐츠 영역에도 똑같이 설정
+    const infoContent = document.querySelector('#infoModal .info-content');
+    if (infoContent) {
+      infoContent.style.width = `${editorWidth}px`;
+      infoContent.style.boxSizing = 'border-box';
+    }
+  }, 0);
+
+}
+
+// 예시: 작품 선택 → showPaintingEditButtons(mesh) → 작품이야기 버튼 생성
+// storyBtn.onclick = () => showPaintingStoryEditor(mesh);
+
+function updatePaintingInfo(mesh) {
+  const infoContent = document.getElementById('infoContent');
+  if (!infoContent) return;
+  
+  /* userData.story가 있으면 사용자 설명, 아니면 기본 설명
+  const html = mesh.userData.story || (mesh.userData.data && mesh.userData.data.description) || '(설명 없음)';
+  infoContent.innerHTML = html;*/
+
+  const data = mesh.userData.data || {};
+  const story = mesh.userData.story?.trim()
+    ? mesh.userData.story
+    : data.description || '(설명 없음)';
+
+  infoContent.innerHTML = `
+    <h2>${data.title || '(제목 없음)'}</h2>
+    <p>${story}</p>
+  `;
+
+  document.getElementById('infoModal').style.display = 'block';
+}
+
+function zoomBackOut() {
+  if (!prevCameraPos || !prevControlsTarget) return;
+
+  const startCam = camera.position.clone();
+  const startTarget = controls.target.clone();
+  const state = { t: 0 };
+
+  isCameraMoving = true;
+  controls.enabled = false;
+
+  new TWEEN.Tween(state)
+    .to({ t: 1 }, 900)
+    .easing(TWEEN.Easing.Cubic.InOut)
+    .onUpdate(({ t }) => {
+      camera.position.lerpVectors(startCam, prevCameraPos, t);
+      controls.target.lerpVectors(startTarget, prevControlsTarget, t);
+      controls.update();
+    })
+    .onComplete(() => {
+      isCameraMoving = false;
+      // 초기화
+      prevCameraPos = null;
+      prevControlsTarget = null;
+    })
+    .start();
+}
+
+function cancelIntroChanges() {
+  // 1) 새로 만든 intro 메쉬 제거
+  for (let mesh of tempIntroMeshes) {
+    scene.remove(mesh);
+    const idx = paintings.indexOf(mesh);
+    if (idx !== -1) paintings.splice(idx, 1);
+  }
+  tempIntroMeshes = [];
+
+  // 2) 원본 intro 객체 위치·회전·텍스트 복원
+  for (let {mesh, position, rotation, html} of originalIntroState) {
+    mesh.position.copy(position);
+    mesh.rotation.copy(rotation);
+    mesh.userData.html = html;
+    updateIntroTextPlaneFromHTML(mesh, html);
+  }
+  originalIntroState = [];
+}
+
 window.onload = initApp
 
 window.showPanel = function (panelId) {
+  // InfoModal 열려 있으면 우선 닫기
+  const modal = document.getElementById("infoModal");
+  if (modal && modal.style.display === "block") {
+    closeInfo();
+  }
   const currentActive = document.querySelector(".settings-slide.active")
   const currentId = currentActive?.id
 
   // 백그라운드 → 메인으로 이동할 때만 복원
   if (currentId === "panel-background" && panelId === "panel-main") {
-    restoreTextureSet()
+     if (!skipCancelBackground) restoreTextureSet();
   }
 
   if (currentId === "panel-paintings" && panelId === "panel-main") {
@@ -1558,6 +2792,8 @@ window.showPanel = function (panelId) {
       position: mesh.position.clone(),
       rotation: mesh.rotation.clone(),
       scale: mesh.scale.clone(),
+      story: mesh.userData.story ||                // 사용자가 작성한 그림이야기
+             mesh.userData.data?.description || "" // 그림이야기 metadata.json 원본
     }))
   } else {
     isPaintingMode = false // 작품 선택 모드 해제
@@ -1565,6 +2801,31 @@ window.showPanel = function (panelId) {
     document.getElementById("navButtons").classList.remove("slide-down"); // 하단 버튼 다시 표시
   }
 
+  // --- 패널이 panel-intro 에서 panel-main 으로 돌아갈 때 롤백 ---
+  if (currentId === "panel-intro" && panelId === "panel-main") {
+    if (!skipCancelIntro) {
+      cancelIntroChanges();
+    }
+  }
+
+  if (panelId === "panel-intro") {
+    isIntroMode = true;
+    // 기존 intro-frame / intro-plane 객체들 스냅샷
+    originalIntroState = paintings
+      .filter(m => m.userData.type === 'intro-frame' || m.userData.type === 'intro-plane')
+      .map(mesh => ({
+        mesh,
+        position: mesh.position.clone(),
+        rotation: mesh.rotation.clone(),
+        html: mesh.userData.html || ""
+      }));
+    // 새로 만든 intro 메쉬들 추적용 배열 초기화
+    tempIntroMeshes = [];
+  } else {
+    isIntroMode = false;
+  }
+
+  // 모든 패널에서 active 클래스 제거 후, 선택한 패널에만 추가
   document.querySelectorAll(".settings-slide").forEach((panel) => {
     panel.classList.remove("active")
   })
