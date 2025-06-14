@@ -1487,8 +1487,8 @@ function populatePaintingGrid() {
 
   grid.innerHTML = "" // 기존 내용 초기화
 
-  const start = currentPage * artwallsItemsPerPage ;
-  const end = start + artwallsItemsPerPage ;
+  const start = currentPage * itemsPerPage ;
+  const end = start + itemsPerPage ;
   const currentItems = paintingsData.slice(start, end);
 
   currentItems.forEach((painting, index) => {
