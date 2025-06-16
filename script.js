@@ -1044,6 +1044,12 @@ document.getElementById("settingsToggle").addEventListener("click", () => {
       cancelIntroChanges(); // applyIntroButton이 눌리지 않았다면 롤백
       isIntroMode = false;
     }
+
+    // ───────── panel-artwalls 롤백 (outline 정리 추가) ─────────
+    if (currentId === "panel-artwalls") {
+      endEditingArtwall();
+    }
+    
     // 슬라이드 상테를 메인으로 되돌린 뒤 패널 닫기
     showPanel("panel-main")
     panel.classList.remove("open")
@@ -3087,6 +3093,11 @@ window.showPanel = function (panelId) {
   }
   const currentActive = document.querySelector(".settings-slide.active")
   const currentId = currentActive?.id
+
+  // 패널 전환 시, panel-artwalls → 다른 패널로 나갈 때 outline 정리
+  if (currentId === "panel-artwalls" && panelId !== "panel-artwalls") {
+    endEditingArtwall(); //
+  }
 
   // 백그라운드 → 메인으로 이동할 때만 복원
   if (currentId === "panel-background" && panelId === "panel-main") {
