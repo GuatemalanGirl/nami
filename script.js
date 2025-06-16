@@ -213,23 +213,40 @@ async function init() {
     if (artRaw) {
       const wallData = JSON.parse(artRaw);
 
-      const rect = renderer.domElement.getBoundingClientRect();
-      const mouse = new THREE.Vector2(
-        ((e.clientX - rect.left) / rect.width) * 2 - 1,
-        -((e.clientY - rect.top)  / rect.height) * 2 + 1
-      );
-      raycaster.setFromCamera(mouse, camera);
-
+      // 벽면 중앙 좌표 계산
       const wallMesh = scene.getObjectByName(currentWall);
-      const hit = wallMesh ? raycaster.intersectObject(wallMesh)[0] : null;
-      if (!hit) return;
+      if (!wallMesh) return;
 
-      const point = hit.point.clone();
-      const rotY  = { front: Math.PI, back: 0,
-                      left: -Math.PI/2, right: Math.PI/2 }[currentWall];
+      const wallCenter = new THREE.Vector3();
+      new THREE.Box3().setFromObject(wallMesh).getCenter(wallCenter);
 
-      loadAndAddArtwall(wallData, point, rotY).then(m => tempArtwalls.push(m));
-      return;   // 아래 그림/서문 분기 건너뛰기
+      const wallZ = ROOM_DEPTH / 2 - 0.01;
+      const wallX = ROOM_WIDTH / 2 - 0.01;
+
+      let fixedPos = new THREE.Vector3();
+      let rotY = 0;
+
+      switch (currentWall) {
+        case "front":
+          fixedPos.set(0, 0, wallZ);
+          rotY = Math.PI;
+          break;
+        case "back":
+          fixedPos.set(0, 0, -wallZ);
+          rotY = 0;
+          break;
+        case "left":
+          fixedPos.set(wallX, 0, 0);
+          rotY = -Math.PI / 2;
+          break;
+        case "right":
+          fixedPos.set(-wallX, 0, 0);
+          rotY = Math.PI / 2;
+          break;
+      }
+
+      loadAndAddArtwall(wallData, fixedPos, rotY, true).then(m => tempArtwalls.push(m));
+      return;
     }
 
     // (1) 그림(작품) 드래그앤드롭
@@ -302,7 +319,7 @@ async function init() {
       } else {
         console.warn("No intersection with wall.");
       }
-      return; // 그림 작업 끝, 아래 intro용 드롭 실행 안함!
+      return; // 그림 작업 끝, 아래 intro용 드롭 실행 안함
     }
 
     // (2) 전시서문 프레임/플레인 드래그앤드롭
@@ -386,7 +403,7 @@ async function init() {
     }
     /* 작품선택 모드일 때만 상세 정보 덮어쓰기 */
     if (isPaintingMode && selectedPainting) {
-      updatePaintingInfo(selectedPainting);   // ← 이제 mesh 하나만 넘깁니다
+      updatePaintingInfo(selectedPainting);   // 이제 mesh 하나만 넘김
     }
   }
   document
@@ -620,7 +637,7 @@ async function init() {
     }
   })
 
-  const dom = renderer.domElement;
+const dom = renderer.domElement;
 
 // 1) pointerdown: 아트월 선택/편집 모드 진입
 dom.addEventListener("pointerdown", e => {
@@ -713,7 +730,6 @@ dom.addEventListener("pointerup", e => {
   isDraggingArt = false;
   selectedArtwall = null;
 });
-
 
   animate()
 }
