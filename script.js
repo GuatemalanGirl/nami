@@ -3010,7 +3010,7 @@ function loadAndAddArtwall(data, position, rotationY) {
         width = Math.min(width, maxWidth);
 
         const geo = new THREE.PlaneGeometry(width, height);
-        const mat = new THREE.MeshBasicMaterial({ map: tx });
+        const mat = new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0.8 });
         const mesh = new THREE.Mesh(geo, mat);
 
         mesh.position.copy(position);
