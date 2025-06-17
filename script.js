@@ -71,6 +71,15 @@ let outlineLine = null; // 선택된 작품 테우리 효과를 위한 변수
 let isDragging = false;     // 드래그 중 여부
 let isResizingPainting = false;   // 크기조절 모드 여부
 
+// ───── 드래그 핸들러용 전역 상태 ─────
+let resizeHandleMesh;           // 핸들러 메쉬
+let isResizingWithHandle = false;
+const dragPlane = new THREE.Plane();
+const dragStartPoint = new THREE.Vector3();
+const dragCurrentPoint = new THREE.Vector3();
+
+
+
 let editingButtonsDiv = document.getElementById("paintingEditButtons"); // 하단 버튼 컨테이너
 // 편집버튼 클릭 시, 이벤트 전파 차단 (편집 종료 안 되게!)
 editingButtonsDiv.addEventListener("mousedown", function(e) {
@@ -114,23 +123,26 @@ function safeUpdatePaintingOrder(delay = 50) {
 
 function globalInputBlocker(e) {
   if (isResizingPainting) {
-    // 아래 조건에 해당하는 버튼만 클릭 허용
+    // ★여기서 포인터 이벤트 허용 조건을 확장★
     if (
       e.target.classList.contains("scale-btn") ||
       e.target.id === "resizeOkBtn" ||
       e.target.id === "resizeCancelBtn" ||
       e.target.closest(".scale-btn") ||
       e.target.closest("#resizeOkBtn") ||
-      e.target.closest("#resizeCancelBtn")
+      e.target.closest("#resizeCancelBtn") ||
+      // 수정: 모든 pointer 이벤트 허용
+      e.type.startsWith("pointer")
     ) {
-      // 버튼만 허용
-      return;
+      return;  // 이 경우만 이벤트 통과
     }
-    // 그 외는 모두 차단(편집 종료/외부클릭 방지)
     e.stopPropagation();
     e.preventDefault();
     return;
   }
+ 
+  
+
 
   if (isStoryEditing) {
     const overlay = document.getElementById('paintingStoryEditorOverlay');
@@ -174,8 +186,8 @@ function globalInputBlocker(e) {
       return;
     }
   }
-
 }
+
 // 모든 주요 입력 이벤트에 대해 캡처링 단계에서 globalResizeBlocker를 등록
 ["mousedown", "mouseup", "click", "pointerdown", "pointerup"].forEach(type => {
   document.addEventListener(type, globalInputBlocker, true);
@@ -610,7 +622,8 @@ async function init() {
     "touchend",
     (event) => {
       if (event.touches && event.touches.length > 1) return // 멀티터치는 무시
-      event.preventDefault() // 스크롤 방지
+      
+      if (event.cancelable) event.preventDefault();  // cancelable 체크 추가
       // 터치 위치 → pointer 위치로 변환
       const touch = event.changedTouches[0]
       const rect = renderer.domElement.getBoundingClientRect()
@@ -957,6 +970,7 @@ async function loadAndAddPainting(data, position, rotationY) {
         mesh.position.copy(position).add(forward.multiplyScalar(depth / 2)) // depth / 2 만큼 그 방향으로 이동시키면 그림의 뒷면이 벽에 붙음
 
         mesh.userData = { isPainting: true, data }
+        mesh.userData.originalScale = mesh.scale.clone(); // 원래 크기 저장 (크기조절 핸들러)
         scene.add(mesh)
         paintings.push(mesh)
         resolve(mesh)
@@ -1448,6 +1462,13 @@ function initApp() {
         setupExhibitSettings()
         checkExhibitPeriod()
         updateGalleryInfo()
+
+        // ───── 핸들러 드래그 이벤트 바인딩 ─────
+        const canvas = renderer.domElement;
+        canvas.addEventListener('pointerdown', onResizeHandlePointerDown);
+        canvas.addEventListener('pointermove', onResizeHandlePointerMove);
+        canvas.addEventListener('pointerup',   onResizeHandlePointerUp);
+
       });
     })
     .catch((err) => {
@@ -1715,7 +1736,12 @@ function showPaintingEditButtons(mesh) {
   // 크기조절 버튼
   const resizeBtn = document.createElement('button');
   resizeBtn.innerText = '크기조절';
-  resizeBtn.onclick = () => showResizeSizeButtons(mesh);
+  // ★여기에 핸들러 모드 진입 트리거 추가★
+  resizeBtn.onclick = () => {
+    // 기존 버튼 기반 모드는 그대로 두되, 핸들러 모드도 초기화
+    showResizeSizeButtons(mesh);
+    createResizeHandle(mesh);
+  };
   editingButtonsDiv.appendChild(resizeBtn);
 
   // 삭제 버튼
@@ -1877,6 +1903,7 @@ function showResizeSizeButtons(mesh) {
     }
     // 이미 scale 적용됨
     isResizingPainting = false;
+    createResizeHandle(mesh);
     showPaintingEditButtons(mesh);
   };
 
@@ -2009,7 +2036,7 @@ function createIntroFrameBoxAt(position, currentWall) {
       description : "(내용 없음)"
     }*/
   };
-
+  
   // 이전에 저장된 색상이 있으면 앞면 색 반영
   if (box.userData.frameColor) {
     box.material[4].color.set(box.userData.frameColor);
@@ -3010,7 +3037,7 @@ function loadAndAddArtwall(data, position, rotationY) {
         width = Math.min(width, maxWidth);
 
         const geo = new THREE.PlaneGeometry(width, height);
-        const mat = new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0.8 });
+        const mat = new THREE.MeshBasicMaterial({ map: tx, transparent: true, opacity: 0.8 }); // 아트월 이미지에 투명도 적용
         const mesh = new THREE.Mesh(geo, mat);
 
         mesh.position.copy(position);
@@ -3082,6 +3109,86 @@ function exitArtwallMode(){
   endEditingArtwall();           // 편집 모드 종료
 }
 
+function updatePointer(event) {
+  const rect = renderer.domElement.getBoundingClientRect();
+  pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+}
+
+function onResizeHandlePointerDown(event) {
+  if (!resizeHandleMesh) return;
+  updatePointer(event);
+  raycaster.setFromCamera(pointer, camera);
+  const hits = raycaster.intersectObject(resizeHandleMesh);
+  if (hits.length) {
+    const mesh = resizeHandleMesh.userData.targetMesh;
+    if (!mesh) return; // 추가: null 안전!
+    isResizingWithHandle = true;
+    dragPlane.setFromNormalAndCoplanarPoint(
+      camera.getWorldDirection(new THREE.Vector3()).negate(),
+      resizeHandleMesh.position
+    );
+    raycaster.ray.intersectPlane(dragPlane, dragStartPoint);
+    mesh.userData._resizeOrigScale = mesh.scale.clone();
+  }
+}
+
+function onResizeHandlePointerMove(event) {
+  if (!isResizingWithHandle || !resizeHandleMesh) return;
+  const mesh = resizeHandleMesh.userData.targetMesh;
+  if (!mesh) return; // 추가: null 안전!
+  const orig = mesh.userData._resizeOrigScale;
+  if (!orig) return; // 추가: null 안전!
+  updatePointer(event);
+  raycaster.setFromCamera(pointer, camera);
+  raycaster.ray.intersectPlane(dragPlane, dragCurrentPoint);
+  const delta = dragCurrentPoint.clone().sub(dragStartPoint);
+
+  // 핸들러 크기 조절 범위 -> 최소 0.5배, 최대 2배
+  const MIN_SCALE = 0.5;
+  const MAX_SCALE = 2.0;
+
+  const factor = 1 + delta.y;
+  const clampedFactor = Math.max(MIN_SCALE, Math.min(MAX_SCALE, factor));
+
+  mesh.scale.set(
+    orig.x * clampedFactor,
+    orig.y * clampedFactor,
+    orig.z
+  );
+  showOutline(mesh);
+  updateResizeHandlePosition(mesh);
+}
+
+
+function onResizeHandlePointerUp() {
+  if (!isResizingWithHandle || !resizeHandleMesh) return;
+  isResizingWithHandle = false;
+  const mesh = resizeHandleMesh.userData.targetMesh;
+  if (!mesh || !mesh.userData.originalScale) return; // 추가: null 안전!
+  mesh.userData.scaleValue = mesh.scale.x / mesh.userData.originalScale.x;
+  if (resizeHandleMesh) resizeHandleMesh.visible = false;
+}
+
+
+function createResizeHandle(mesh) {
+  //핸들러가 이미 있으면 삭제
+  if (resizeHandleMesh) scene.remove(resizeHandleMesh);
+  const geom = new THREE.SphereGeometry(0.1, 16, 16);
+  const mat  = new THREE.MeshBasicMaterial({ color: 0xffff00, transparent: true, opacity: 0.8 });
+  resizeHandleMesh = new THREE.Mesh(geom, mat);
+  resizeHandleMesh.userData.targetMesh = mesh;
+  scene.add(resizeHandleMesh);
+  updateResizeHandlePosition(mesh);
+}
+
+function updateResizeHandlePosition(mesh) {
+  const box = new THREE.Box3().setFromObject(mesh);
+  // 오른쪽(사용자 기준) 상단 앞 모서리: min.x, max.y, max.z
+  const corner = new THREE.Vector3(box.min.x, box.max.y, box.max.z);
+  resizeHandleMesh.position.copy(corner);
+  resizeHandleMesh.visible = true;
+}
 
 window.onload = initApp
 
