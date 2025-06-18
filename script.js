@@ -3162,20 +3162,45 @@ function onResizeHandlePointerMove(event) {
   updatePointer(event);
   raycaster.setFromCamera(pointer, camera);
   raycaster.ray.intersectPlane(dragPlane, dragCurrentPoint);
-  const delta = dragCurrentPoint.clone().sub(dragStartPoint);
+  
+  /* 🔥 월드 → 로컬 좌표로 변환해 Δ 계산 */
+  const localStart   = mesh.worldToLocal(dragStartPoint.clone());
+  const localCurrent = mesh.worldToLocal(dragCurrentPoint.clone());
+  const deltaLocal   = localCurrent.clone().sub(localStart);
 
   // 핸들러 크기 조절 범위 -> 최소 0.5배, 최대 2배
   const MIN_SCALE = 0.5;
   const MAX_SCALE = 2.0;
 
-  const factor = 1 + delta.y;
-  const clampedFactor = Math.max(MIN_SCALE, Math.min(MAX_SCALE, factor));
+  if (mesh.userData.type === 'intro-frame') {
+    // ---- 프레임 서문(사각형) → x/y축 각각 자유 조절 ----
+    // delta.x/y를 활용
+    let factorX = 1 + deltaLocal.x;
+    let factorY = 1 + deltaLocal.y;
+    factorX = Math.max(MIN_SCALE, Math.min(MAX_SCALE, factorX));
+    factorY = Math.max(MIN_SCALE, Math.min(MAX_SCALE, factorY));
 
-  mesh.scale.set(
-    orig.x * clampedFactor,
-    orig.y * clampedFactor,
-    orig.z
-  );
+    // 쉬프트키 누르면 정비율(정사각형)
+    if (event.shiftKey) {
+      // 비율을 맞춤: x/y 둘 중 큰 증가량에 맞춰 둘 다 동일하게
+      const factor = Math.max(Math.abs(factorX), Math.abs(factorY)) * Math.sign(factorY);
+      mesh.scale.x = orig.x * factor;
+      mesh.scale.y = orig.y * factor;
+    } else {
+      mesh.scale.x = orig.x * factorX;
+      mesh.scale.y = orig.y * factorY;
+    }
+    // z(두께)는 그대로 유지!
+  } else {
+    // ---- 기존 그림(정사각형 등) → 비율 고정 크기조절 ----
+    let factor = 1 + deltaLocal.y;
+    const clampedFactor = Math.max(MIN_SCALE, Math.min(MAX_SCALE, factor));
+    mesh.scale.set(
+      orig.x * clampedFactor,
+      orig.y * clampedFactor,
+      orig.z
+    );
+  }
   showOutline(mesh);
   updateResizeHandlePosition(mesh);
 }
