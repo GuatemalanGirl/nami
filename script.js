@@ -1881,6 +1881,9 @@ function showResizeSizeButtons(mesh) {
         orig.y * tempScaleValue,
         orig.z
       );
+
+      updateIntroTextScale(mesh);
+
       // 버튼 하이라이트 효과
       document.querySelectorAll('.scale-btn').forEach(b=>b.style.background="");
       btn.style.background = "#ffffff";
@@ -1899,6 +1902,8 @@ function showResizeSizeButtons(mesh) {
     if (isEditingPainting && editingPainting === mesh) {
       showOutline(mesh); // 테두리 다시 만듦
     }
+
+    updateIntroTextScale(mesh);
     
     // 크기조절 시 텍스트 크기도 비율에 맞게 갱신
     if (mesh.userData.text) {
@@ -2057,6 +2062,9 @@ function createIntroFrameBoxAt(position, currentWall) {
     }*/
   };
   
+  box.userData._baseScale = box.scale.clone(); // 처음 1,1,1 저장
+  box.userData.textMesh = null; // 텍스트 메쉬를 나중에 연결할 수 있도록 기본값 null
+
   // 이전에 저장된 색상이 있으면 앞면 색 반영
   if (box.userData.frameColor) {
     box.material[4].color.set(box.userData.frameColor);
@@ -2105,6 +2113,9 @@ function createIntroWallPlaneAt(position, currentWall) {
       description : "(내용 없음)"
     }*/
   };
+
+  plane.userData._baseScale = plane.scale.clone();
+  plane.userData.textMesh = null;
 
   scene.add(plane);
   if (isIntroMode) tempIntroMeshes.push(plane);
@@ -2234,8 +2245,9 @@ function updateIntroTextPlaneFromHTML(mesh, html) {
   // 플레인의 실측(width, height, scale)로 캔버스/텍스트 계산
   const geom = mesh.geometry.parameters;
   const DPI = 2;
-  const w = geom.width || 3;
-  const h = geom.height || 3;
+  // 스케일이 곱해진 '월드' 크기를 계산
+  const w = (geom.width || 3) * mesh.scale.x;
+  const h = (geom.height || 3) * mesh.scale.y;
   const RATIO = w / h;
   const BASE = 1024;
   const canvasW = Math.round(BASE * RATIO) * DPI;
@@ -3172,8 +3184,8 @@ function onResizeHandlePointerMove(event) {
   const MIN_SCALE = 0.5;
   const MAX_SCALE = 2.0;
 
-  if (mesh.userData.type === 'intro-frame') {
-    // ---- 프레임 서문(사각형) → x/y축 각각 자유 조절 ----
+  if (mesh.userData.type === 'intro-frame' || mesh.userData.type === 'intro-plane') {
+    // 서문(사각형) → x/y축 각각 자유 조절
     // delta.x/y를 활용
     let factorX = 1 + deltaLocal.x;
     let factorY = 1 + deltaLocal.y;
@@ -3201,6 +3213,12 @@ function onResizeHandlePointerMove(event) {
       orig.z
     );
   }
+
+  // 프레임·플레인 서문이면 실시간으로 텍스트 업데이트
+  if (mesh.userData.type?.startsWith('intro') && mesh.userData.html) {
+    updateIntroTextPlaneFromHTML(mesh, mesh.userData.html);
+  }
+
   showOutline(mesh);
   updateResizeHandlePosition(mesh);
 }
@@ -3211,6 +3229,12 @@ function onResizeHandlePointerUp() {
   const mesh = resizeHandleMesh.userData.targetMesh;
   if (!mesh || !mesh.userData.originalScale) return; // 추가: null 안전!
   mesh.userData.scaleValue = mesh.scale.x / mesh.userData.originalScale.x;
+
+  // 프레임·플레인 서문이면 실시간으로 텍스트 업데이트
+  if (mesh.userData.type?.startsWith('intro') && mesh.userData.html) {
+    updateIntroTextPlaneFromHTML(mesh, mesh.userData.html);
+  }
+
 }
 
 function createResizeHandle(mesh) {
@@ -3266,6 +3290,37 @@ function updateResizeHandlePosition(mesh) {
   resizeHandleMesh.visible = true;
 }
 
+/**
+ * 프레임 크기 변화 후 텍스트 스케일을 재계산
+ * @param {THREE.Mesh} frameMesh  플레임(박스/플레인) 메쉬
+ */
+function updateIntroTextScale(frameMesh) {
+  const textMesh = frameMesh.userData.textMesh;
+  if (!textMesh) return;
+
+  // 최초 생성 시 저장해 둔 "기준 프레임 스케일"
+  const baseFrameScale = frameMesh.userData._baseScale; // {x,y}
+  const sx = frameMesh.scale.x / baseFrameScale.x;
+  const sy = frameMesh.scale.y / baseFrameScale.y;
+
+  // ⬇️ ① fitInside : 짧은 변에 맞춰 글씨를 줄임
+  const s = Math.min(sx, sy);
+
+  // ⬇️ ② fitOutside 방식이 좋다면 Math.max(sx, sy) 사용
+  // const s = Math.max(sx, sy);
+
+  textMesh.scale.set(s, s, s);
+
+  // 글자를 프레임 중앙에 재정렬 (선택)
+  const bbox = new THREE.Box3().setFromObject(textMesh);
+  const size = new THREE.Vector3();
+  bbox.getSize(size);
+  textMesh.position.set(
+    -size.x * 0.5,
+    -size.y * 0.5,
+    0.001          // z-offset 살짝 앞으로
+  );
+}
 
 window.onload = initApp
 
