@@ -1848,51 +1848,65 @@ function showResizeSizeButtons(mesh) {
   const orig = mesh.userData.originalScale;
   let currentScaleValue = mesh.scale.x / orig.x;
 
-  editingButtonsDiv.innerHTML = `
-    <div style="display:flex;gap:8px;justify-content:center;">
-      ${scaleList.map(s =>
-        `<button class="scale-btn" data-scale="${s.value}" ${s.value===currentScaleValue?'style="background:#c7eaff;"':''}>${s.label}</button>`
-      ).join("")}
-    </div>
+  // "작품(그림)이면서 intro 아님"일 때만 크기버튼 생성
+  const isArtwork = mesh.userData.isPainting && !mesh.userData.type?.startsWith('intro');
+  let html = "";
+
+  if (isArtwork && isPaintingMode) {
+    html += `
+      <div style="display:flex;gap:8px;justify-content:center;">
+        ${scaleList.map(s =>
+          `<button class="scale-btn" data-scale="${s.value}" ${s.value===currentScaleValue?'style="background:#c7eaff;"':''}>${s.label}</button>`
+        ).join("")}
+      </div>
+    `;
+  }
+
+  html += `
     <button id="resizeOkBtn">확인</button>
     <button id="resizeCancelBtn">취소</button>
   `;
 
-  // 버튼 생성 후, 진입 시 현재 배율 버튼만 하이라이트!
-  const btns = document.querySelectorAll('.scale-btn');
-  btns.forEach(btn => {
-    if (parseFloat(btn.getAttribute('data-scale')) === currentScaleValue) {
-      btn.style.background = "#ffffff";
-    } else {
-      btn.style.background = "";
-    }
-  });
+  editingButtonsDiv.innerHTML = html;
 
-  let tempScaleValue = currentScaleValue; // 임시 선택값
+  // 크기버튼이 존재할 때만 (작품일 때만)
+  if (isArtwork && isPaintingMode) {
+    // 버튼 생성 후, 진입 시 현재 배율 버튼만 하이라이트!
+    const btns = document.querySelectorAll('.scale-btn');
+    btns.forEach(btn => {
+      if (parseFloat(btn.getAttribute('data-scale')) === currentScaleValue) {
+        btn.style.background = "#ffffff";
+      } else {
+        btn.style.background = "";
+      }
+    });
 
-  // 각 배율 버튼 클릭시
-  document.querySelectorAll('.scale-btn').forEach(btn => {
-    btn.onclick = () => {
-      tempScaleValue = parseFloat(btn.getAttribute('data-scale'));
-      // 원본스케일 x 선택배율
-      const orig = mesh.userData.originalScale;
-      mesh.scale.set(
-        orig.x * tempScaleValue,
-        orig.y * tempScaleValue,
-        orig.z
-      );
+    let tempScaleValue = currentScaleValue; // 임시 선택값
 
-      updateIntroTextScale(mesh);
+    // 각 배율 버튼 클릭시
+    document.querySelectorAll('.scale-btn').forEach(btn => {
+      btn.onclick = () => {
+        tempScaleValue = parseFloat(btn.getAttribute('data-scale'));
+        // 원본스케일 x 선택배율
+        const orig = mesh.userData.originalScale;
+        mesh.scale.set(
+          orig.x * tempScaleValue,
+          orig.y * tempScaleValue,
+          orig.z
+        );
 
-      // 버튼 하이라이트 효과
-      document.querySelectorAll('.scale-btn').forEach(b=>b.style.background="");
-      btn.style.background = "#ffffff";
-      // outline도 배율 바뀔 때마다 갱신
-      createResizeHandle(mesh);
-      showOutline(mesh);
-    };
-  });
+        updateIntroTextScale(mesh);
 
+        // 버튼 하이라이트 효과
+        document.querySelectorAll('.scale-btn').forEach(b=>b.style.background="");
+        btn.style.background = "#ffffff";
+        // outline도 배율 바뀔 때마다 갱신
+        createResizeHandle(mesh);
+        showOutline(mesh);
+      };
+    });
+  }
+  
   // 확인 버튼
   document.getElementById("resizeOkBtn").onclick = () => {
     // mesh에 최종값 저장
