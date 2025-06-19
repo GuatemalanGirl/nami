@@ -1321,107 +1321,113 @@ function updateGalleryInfo() {
   }
 }
 
-const textureSets = {
-  set1: {
-    floor:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor1.png",
-    ceiling:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling1.png",
-    walls:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls1.png",
-  },
-  set2: {
-    floor:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor2.png",
-    ceiling:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling2.png",
-    walls:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls2.png",
-  },
-  set3: {
-    floor:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor3.png",
-    ceiling:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling3.png",
-    walls:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls3.png",
-  },
-  set4: {
-    floor:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor4.png",
-    ceiling:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling4.png",
-    walls:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls4.png",
-  },
-  set5: {
-    floor:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor5.png",
-    ceiling:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling5.png",
-    walls:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls5.png",
-  },
-  set6: {
-    floor:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor6.png",
-    ceiling:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling6.png",
-    walls:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls6.png",
-  },
-  set7: {
-    floor:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor7.jpg",
-    ceiling:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling7.png",
-    walls:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls8.png",
-  },
-  set8: {
-    floor:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/floor/floor8.png",
-    ceiling:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/ceiling/ceiling8.png",
-    walls:
-      "https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/walls/walls9.png",
-  },
+// --------------- 배경 텍스처 세트 관련 ---------------
+
+// metadata_textures.json에서 texture set 정보를 불러옴
+let textureSetsData = [];         // [{ set, thumb, floor, ceiling, walls }]
+let selectedTextureSet = null;    // 미리보기용
+let confirmedTextureSet = null;   // 마지막 확정값
+
+// (1) JSON 불러와서 그리드 렌더
+fetch('https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/textures/metadata_textures.json')
+  .then(res => res.json())
+  .then(data => {
+    textureSetsData = data;
+    populateTextureGrid();
+  });
+
+// (2) 동적으로 썸네일 그리드 생성
+function populateTextureGrid() {
+  const grid = document.querySelector('.background-grid');
+  if (!grid) return;
+  grid.innerHTML = ''; // 초기화
+
+  textureSetsData.forEach(set => {
+    const div = document.createElement('div');
+    div.className = 'texture-option';
+    div.setAttribute('data-set', set.set);
+
+    // 썸네일+set명 표시(원하면 title 등도 추가)
+    div.innerHTML = `
+      <img src="${set.thumb}" alt="${set.set}">
+    `;
+
+    // 클릭: 미리보기+선택 시각화
+    div.addEventListener('click', () => {
+      selectedTextureSet = set.set;
+      applyPreviewTextureSet(set.set);
+      highlightSelectedOption(div);
+    });
+
+    grid.appendChild(div);
+  });
 }
 
-let selectedTextureSet = null // 사용자가 선택한 (미리보기용)
-let confirmedTextureSet = null // 마지막으로 저장된 값
-
-document.querySelectorAll(".texture-option").forEach((option) => {
-  option.addEventListener("click", () => {
-    const setName = option.getAttribute("data-set")
-    selectedTextureSet = setName
-    applyPreviewTextureSet(setName) // 선택된 썸네일 배경 즉시 미리보기
-    highlightSelectedOption(option) // 선택된 썸네일 시각적으로 표시
-  })
-})
-
+// 미리보기 함수
 function applyPreviewTextureSet(setName) {
-  const set = textureSets[setName]
-  if (!set) return
+  const set = textureSetsData.find(t => t.set === setName);
+  if (!set) return;
 
-  const floor = textureLoader.load(set.floor)
-  const ceiling = textureLoader.load(set.ceiling)
-  const walls = textureLoader.load(set.walls)
-  updateRoomTextures(floor, ceiling, walls) // 즉시 반영
+  // 3개 텍스처를 모두 비동기로 로드 (콜백 내부에서만 적용!)
+  let loaded = 0;
+  let floorTex, ceilingTex, wallsTex;
+
+  textureLoader.load(set.floor, function(tex) {
+    floorTex = tex;
+    loaded++;
+    if (loaded === 3) updateRoomTextures(floorTex, ceilingTex, wallsTex);
+  });
+  textureLoader.load(set.ceiling, function(tex) {
+    ceilingTex = tex;
+    loaded++;
+    if (loaded === 3) updateRoomTextures(floorTex, ceilingTex, wallsTex);
+  });
+  textureLoader.load(set.walls, function(tex) {
+    wallsTex = tex;
+    loaded++;
+    if (loaded === 3) updateRoomTextures(floorTex, ceilingTex, wallsTex);
+  });
 }
 
+// “적용” 버튼 클릭 시: 확정 적용 & 저장 & 플래그
+document
+  .getElementById("applyBackgroundButton")
+  .addEventListener("click", () => {
+    if (!selectedTextureSet) {
+      alert("배경을 선택하세요!")
+      return
+    }
+
+    applyTextureSet(selectedTextureSet)
+    alert("배경이 적용되었습니다!")
+    skipCancelBackground = true; // 롤백 스킵
+    showPanel('panel-main'); // 메인으로 복귀
+    skipCancelBackground = false; // 플래그 초기화
+
+    localStorage.setItem("selectedTextureSet", selectedTextureSet)
+  })
+
+// 진짜 적용 함수: 확정 값 반영 및 저장
 function applyTextureSet(setName) {
   confirmedTextureSet = setName // 진짜 확정
   selectedTextureSet = setName
   localStorage.setItem("selectedTextureSet", setName)
-  applyPreviewTextureSet(setName)
+  applyPreviewTextureSet(setName) // 한 번 더(혹시 미리보기와 실제가 다를 수 있으니)
 }
 
+// 롤백 함수: 확정값으로 복귀(패널 닫기/취소 등에서 사용)
 function restoreTextureSet() {
-  if (!confirmedTextureSet || !scene) return
-  applyPreviewTextureSet(confirmedTextureSet)
-  selectedTextureSet = confirmedTextureSet
+  if (!confirmedTextureSet || !scene) return;
+  applyPreviewTextureSet(confirmedTextureSet);
+  selectedTextureSet = confirmedTextureSet;
+  // 썸네일 하이라이트도 되돌림
+  const grid = document.querySelector('.background-grid');
+  if (grid) {
+    const opt = grid.querySelector(`[data-set="${confirmedTextureSet}"]`);
+    if (opt) highlightSelectedOption(opt);
+  }
 }
+
 
 function updateRoomTextures(floorTex, ceilingTex, wallTex) {
   const floor = scene.getObjectByName("floor")
@@ -1444,6 +1450,8 @@ function updateRoomTextures(floorTex, ceilingTex, wallTex) {
     if (mesh) mesh.material.needsUpdate = true
   })
 }
+
+
 
 function initApp() {
   // 먼저 저장된 texture set을 미리 기억해둠
@@ -1491,23 +1499,6 @@ function highlightSelectedOption(selected) {
   })
   selected.style.border = "2px solid #ff8b79" // 선택된 것 강조
 }
-
-document
-  .getElementById("applyBackgroundButton")
-  .addEventListener("click", () => {
-    if (!selectedTextureSet) {
-      alert("배경을 선택하세요!")
-      return
-    }
-
-    applyTextureSet(selectedTextureSet)
-    alert("배경이 적용되었습니다!")
-    skipCancelBackground = true; // 롤백 스킵
-    showPanel('panel-main'); // 메인으로 복귀
-    skipCancelBackground = false; // 플래그 초기화
-
-    localStorage.setItem("selectedTextureSet", selectedTextureSet)
-  })
 
 // (1) '적용' 버튼 클릭 핸들러를 분리한 named function
 function handleApplyPaintings() {
@@ -3191,7 +3182,7 @@ function onResizeHandlePointerMove(event) {
   // 핸들러 위치를 마우스 위치(3D)에 맞춘다
   resizeHandleMesh.position.copy(dragCurrentPoint);
   
-  /* 월드 → 로컬 좌표로 변환해 Δ 계산 */
+  /* 🔥 월드 → 로컬 좌표로 변환해 Δ 계산 */
   const localStart   = mesh.worldToLocal(dragStartPoint.clone());
   const localCurrent = mesh.worldToLocal(dragCurrentPoint.clone());
   const deltaLocal   = localCurrent.clone().sub(localStart);
