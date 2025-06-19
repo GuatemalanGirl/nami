@@ -3187,8 +3187,11 @@ function onResizeHandlePointerMove(event) {
   updatePointer(event);
   raycaster.setFromCamera(pointer, camera);
   raycaster.ray.intersectPlane(dragPlane, dragCurrentPoint);
+
+  // 핸들러 위치를 마우스 위치(3D)에 맞춘다
+  resizeHandleMesh.position.copy(dragCurrentPoint);
   
-  /* 🔥 월드 → 로컬 좌표로 변환해 Δ 계산 */
+  /* 월드 → 로컬 좌표로 변환해 Δ 계산 */
   const localStart   = mesh.worldToLocal(dragStartPoint.clone());
   const localCurrent = mesh.worldToLocal(dragCurrentPoint.clone());
   const deltaLocal   = localCurrent.clone().sub(localStart);
