@@ -1881,17 +1881,17 @@ function showResizeSizeButtons(mesh) {
       }
     });
 
-    let tempScaleValue = currentScaleValue; // 임시 선택값
+    mesh.userData.tempScaleValue = currentScaleValue; // 임시 선택값
 
     // 각 배율 버튼 클릭시
     document.querySelectorAll('.scale-btn').forEach(btn => {
       btn.onclick = () => {
-        tempScaleValue = parseFloat(btn.getAttribute('data-scale'));
+        mesh.userData.tempScaleValue = parseFloat(btn.getAttribute('data-scale'));
         // 원본스케일 x 선택배율
         const orig = mesh.userData.originalScale;
         mesh.scale.set(
-          orig.x * tempScaleValue,
-          orig.y * tempScaleValue,
+          orig.x * mesh.userData.tempScaleValue,
+          orig.y * mesh.userData.tempScaleValue,
           orig.z
         );
 
@@ -1906,11 +1906,10 @@ function showResizeSizeButtons(mesh) {
       };
     });
   }
-  
   // 확인 버튼
   document.getElementById("resizeOkBtn").onclick = () => {
     // mesh에 최종값 저장
-    mesh.userData.scaleValue = tempScaleValue;
+    mesh.userData.scaleValue = mesh.userData.tempScaleValue;
 
     // outline 크기 갱신
     if (isEditingPainting && editingPainting === mesh) {
