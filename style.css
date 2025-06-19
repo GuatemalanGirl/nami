@@ -49,16 +49,24 @@ button:hover {
 
 #leftButton,
 #rightButton,
+#homeButton,
 #infoButton {
   font-size: 22px;
   padding: 12px 20px;
   background-color: #5adbcc;
   color: black;
+  border-radius: 20px;
+  border: none;
   opacity: 0.7;
   transition: opacity 0.3s ease;
+  width: 75px;
+  height: 50px;
+  cursor: pointer;
 }
+
 #leftButton:hover,
 #rightButton:hover,
+#homeButton:hover,
 #infoButton:hover {
   background-color: #ff8b79;
   opacity: 1;
@@ -70,15 +78,21 @@ button:hover {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-direction: column;    /* ← 세로 쌓기 (중요!) */
+  align-items: center;       /* ← 버튼 가운데 정렬 */
   gap: 10px;
   z-index: 1;
-
   transition: transform 0.4s ease;
 }
-
 .nav-buttons.slide-down {
-  transform: translate(-50%, 100px); /* 아래로 100x 이동 */
-  pointer-events: none; /* 클릭 방지 */
+  transform: translate(-50%, 200px);
+  pointer-events: none;
+}
+
+.direction-row {
+  display: flex;
+  flex-direction: row;
+  gap: 10px;
 }
 
 #infoModal {
