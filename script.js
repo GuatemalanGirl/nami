@@ -141,9 +141,6 @@ function globalInputBlocker(e) {
     return;
   }
  
-  
-
-
   if (isStoryEditing) {
     const overlay = document.getElementById('paintingStoryEditorOverlay');
     // overlay 내부 요소가 아닌 곳은 모두 막는다
@@ -3328,6 +3325,43 @@ function updateIntroTextScale(frameMesh) {
     0.001          // z-offset 살짝 앞으로
   );
 }
+
+// 홈 버튼 클릭 시 Tween으로 카메라 이동(시선은 유지)
+document.getElementById("homeButton").addEventListener("click", () => {
+  // 1. 카메라 z축만 중앙(0)으로 Tween 이동
+  const targetPos = {
+    x: camera.position.x,
+    y: camera.position.y,
+    z: 0
+  };
+
+  // 2. controls.target의 y는 현재 값 고정, x/z만 중앙으로 Tween
+  const oldTarget = { 
+    x: controls.target.x,
+    y: controls.target.y,
+    z: controls.target.z
+  };
+  const centerTarget = { 
+    x: 0, 
+    y: controls.target.y,   // 현재 y값을 고정!
+    z: 0 
+  };
+
+  new TWEEN.Tween(camera.position)
+    .to(targetPos, 1200)
+    .easing(TWEEN.Easing.Quadratic.Out)
+    .onUpdate(() => { controls.update(); })
+    .start();
+
+  new TWEEN.Tween(oldTarget)
+    .to(centerTarget, 1200)
+    .easing(TWEEN.Easing.Quadratic.Out)
+    .onUpdate(() => {
+      controls.target.set(oldTarget.x, oldTarget.y, oldTarget.z);
+      controls.update();
+    })
+    .start();
+});
 
 window.onload = initApp
 
