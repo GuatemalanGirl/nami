@@ -514,6 +514,56 @@ button.settings-icon:hover {
   margin: 0 0 6px;
 }
 
+.ql-editor span[style*="color: rgb(255, 255, 255)"], 
+.ql-editor span[style*="color: #fff"], 
+.ql-editor span[style*="color: #ffffff"] {
+  /* 흰색 텍스트에만 외곽선 효과 */
+  text-shadow:
+    -1px -1px 0 #222,  
+     1px -1px 0 #222,
+    -1px  1px 0 #222,
+     1px  1px 0 #222;
+}
+
+/* 에디터 기본 한글 폰트 적용 */
+.ql-editor {
+  font-family:
+    'Noto Sans KR', 'Nanum Gothic', 'Nanum Myeongjo', 'Nanum Pen Script',
+    'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif !important;
+}
+
+/* Quill 폰트 클래스를 각각 폰트에 매핑 */
+.ql-font-noto-sans-kr {
+  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+}
+.ql-font-nanum-gothic {
+  font-family: 'Nanum Gothic', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+}
+.ql-font-nanum-myeongjo {
+  font-family: 'Nanum Myeongjo', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+}
+.ql-font-nanum-pen-script {
+  font-family: 'Nanum Pen Script', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+}
+
+/* 툴바에서 폰트 이름 한글로 표시 */
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="noto-sans-kr"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="noto-sans-kr"]::before {
+  content: "Noto Sans KR";
+}
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="nanum-gothic"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="nanum-gothic"]::before {
+  content: "나눔고딕";
+}
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="nanum-myeongjo"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="nanum-myeongjo"]::before {
+  content: "나눔명조";
+}
+.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="nanum-pen-script"]::before,
+.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="nanum-pen-script"]::before {
+  content: "나눔펜";
+}
+
 /* 버튼 막대 – 가운데 정렬 + 아래 붙이기 */
 #overlayBtnBar{
   position : fixed;
