@@ -508,6 +508,12 @@ button.settings-icon:hover {
   overflow-y : auto;
 }
 
+/* 에디터 내부 단락마다 6px 간격 주기 */
+#quillEditor .ql-editor p,
+#paintingStoryQuill .ql-editor p {
+  margin: 0 0 6px;
+}
+
 /* 버튼 막대 – 가운데 정렬 + 아래 붙이기 */
 #overlayBtnBar{
   position : fixed;
