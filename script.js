@@ -2281,6 +2281,12 @@ function updateIntroTextPlaneFromHTML(mesh, html) {
     maxTextWidth = canvasW * 0.8;
 
     paragraphs.forEach(para => {
+      // ── 빈 단락(<p><br></p>)도 한 줄로 취급 ──
+      if (para.innerHTML === '<br>' || para.innerHTML.trim() === '') {
+        linesAll.push({ lineArr: [], align: 'left' });
+        allLineHeights.push(Math.round(fontRatio * 1.35)); // 기본 행간
+        return;   // 다음 단락으로
+      }
       let styledSpans = parseParagraphToSpans(para, DPI, fontRatio);
       let lines = wrapStyledText(ctx, styledSpans, maxTextWidth);
       lines.forEach(lineArr => {
@@ -2879,32 +2885,32 @@ function showPaintingStoryEditor(mesh) {
 
   // 확인 버튼
   const okBtn = document.createElement('button');
-okBtn.textContent = '확인';
-okBtn.onclick = function() {
+    okBtn.textContent = '확인';
+    okBtn.onclick = function() {
   // 텍스트 저장(HTML)
   const html = quill.root.innerHTML;
-  mesh.userData.story = html;
+    mesh.userData.story = html;
 
-  selectedPainting = mesh; 
+    selectedPainting = mesh; 
 
-  // 필요하다면 mesh.userData.data.description = html; 도 가능!
-  if (overlay && overlay.parentNode) {
-    overlay.parentNode.removeChild(overlay);
-  }
-  // 외부클릭차단 해제 / 오버레이 제거
-  isStoryEditing = false;
-  // overlay.remove; ← 이 줄은 필요 없다면 삭제해도 됨
+    // 필요하다면 mesh.userData.data.description = html; 도 가능!
+    if (overlay && overlay.parentNode) {
+      overlay.parentNode.removeChild(overlay);
+    }
+    // 외부클릭차단 해제 / 오버레이 제거
+    isStoryEditing = false;
+    // overlay.remove; ← 이 줄은 필요 없다면 삭제해도 됨
 
-  // 필요하면 작품정보(info) 새로고침/업데이트 함수 호출
-  updatePaintingInfo(mesh);
+    // 필요하면 작품정보(info) 새로고침/업데이트 함수 호출
+    updatePaintingInfo(mesh);
 
-  // **showPaintingEditButtons(mesh); 호출은 주석처리 또는 삭제!**
-  // showPaintingEditButtons(mesh);
+    // **showPaintingEditButtons(mesh); 호출은 주석처리 또는 삭제!**
+    // showPaintingEditButtons(mesh);
 
-  // 대신, infoModal을 여기서 띄우세요!
-  showInfo(); // infoModal 오픈
-};
-buttonRow.appendChild(okBtn);
+    // 대신, infoModal을 여기서 띄우세요!
+    showInfo(); // infoModal 오픈
+  };
+  buttonRow.appendChild(okBtn);
 
 
   // 취소 버튼
