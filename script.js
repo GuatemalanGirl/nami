@@ -2085,7 +2085,8 @@ function createIntroWallPlaneAt(position, currentWall) {
     color: 0xcde0ff,
     transparent: true,
     opacity: 0.8,
-    side: THREE.DoubleSide
+    side: THREE.DoubleSide,
+    depthWrite: false
   });
   const plane = new THREE.Mesh(geometry, material);
 
@@ -2141,18 +2142,67 @@ function getWallRotationY(currentWall) {
 
 function setupQuillEditor() {
   if (!quill) {
+    // 1) Quill 폰트 Whitelist 선언 (최초 1번만!)
+    const Font = Quill.import('formats/font');
+    Font.whitelist = [
+      'noto-sans-kr', 'nanum-gothic', 'nanum-myeongjo', 'nanum-pen-script',
+      'serif', 'sans-serif', 'monospace'
+    ];
+    Quill.register(Font, true);
+
+    // 2) 한글 폰트가 포함된 툴바로 생성
     quill = new Quill('#quillEditor', {
       modules: {
         toolbar: [
-          [{ 'font': [] }, { 'size': [] }],
-          ['bold', 'italic', 'underline', { 'color': [] }],
-          [{ 'align': [] }]
+          [{ font: Font.whitelist }, { size: [] }],
+          ['bold', 'italic', 'underline', { color: [] }],
+          [{ align: [] }]
         ]
       },
       theme: 'snow'
     });
+
+    // 3) 에디터 폰트 CSS도 함께(스타일시트가 이미 있으면 생략)
+    const style = document.createElement('style');
+    style.innerHTML = `
+      .ql-editor {
+        font-family:
+          'Noto Sans KR', 'Nanum Gothic', 'Nanum Myeongjo', 'Nanum Pen Script',
+          'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif !important;
+      }
+      .ql-font-noto-sans-kr {
+        font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+      }
+      .ql-font-nanum-gothic {
+        font-family: 'Nanum Gothic', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+      }
+      .ql-font-nanum-myeongjo {
+        font-family: 'Nanum Myeongjo', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+      }
+      .ql-font-nanum-pen-script {
+        font-family: 'Nanum Pen Script', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+      }
+      .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="noto-sans-kr"]::before,
+      .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="noto-sans-kr"]::before {
+        content: "Noto Sans KR";
+      }
+      .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="nanum-gothic"]::before,
+      .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="nanum-gothic"]::before {
+        content: "나눔고딕";
+      }
+      .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="nanum-myeongjo"]::before,
+      .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="nanum-myeongjo"]::before {
+        content: "나눔명조";
+      }
+      .ql-snow .ql-picker.ql-font .ql-picker-label[data-value="nanum-pen-script"]::before,
+      .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="nanum-pen-script"]::before {
+        content: "나눔펜";
+      }
+    `;
+    document.head.appendChild(style);
   }
 }
+
 
 // 텍스트 입력 오버레이 열기 -> mesh 표면의 중앙 지점을 2D 화면 좌표로 투영하는 방식
 function showOverlayEditor(mesh) {
@@ -2336,14 +2386,19 @@ function updateIntroTextPlaneFromHTML(mesh, html) {
       ctx.fillText(span.text, curX, curY);
       // 밑줄
       if (span.textDecoration && span.textDecoration.includes("underline")) {
-        let textWidth = ctx.measureText(span.text).width;
-        let y = curY + ctx.measureText('M').actualBoundingBoxAscent + 4;
-        ctx.strokeStyle = span.color;
-        ctx.beginPath();
-        ctx.moveTo(curX, y);
-        ctx.lineTo(curX + textWidth, y);
-        ctx.stroke();
-      }
+      let textWidth = ctx.measureText(span.text).width;
+      let fontPx = parseInt(span.font.match(/(\d+)px/)[1]) || 28;
+      // 윗줄이 아니라 "글씨 아래"에!
+      let y = curY + fontPx * 1; // 폰트에 따라 0.90~ 조정 가능
+      ctx.save();
+      ctx.strokeStyle = span.color;
+      ctx.lineWidth = Math.max(2, fontPx / 20); // 굵게! (DPI에 따라 조절)
+      ctx.beginPath();
+      ctx.moveTo(curX, y);
+      ctx.lineTo(curX + textWidth, y);
+      ctx.stroke();
+      ctx.restore();
+    }
       curX += ctx.measureText(span.text).width;
     });
     curY += thisLineHeight;
@@ -2352,7 +2407,7 @@ function updateIntroTextPlaneFromHTML(mesh, html) {
   // plane 텍스처로 적용
   const tex = new THREE.CanvasTexture(canvas);
   tex.needsUpdate = true;
-  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true });
+  const mat = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false });
 
   let planeWidth = geom.width * 0.9;
   let planeHeight = geom.height * 0.9;
@@ -2565,24 +2620,38 @@ function parseParagraphToSpans(para, DPI, fontRatio) {
     let fontWeight = style.fontWeight || "normal";
     let fontStyle = style.fontStyle || "normal";
     let fontSize;
-    if (style.fontSize) {
-      if (style.fontSize.endsWith('px')) fontSize = parseInt(style.fontSize) * DPI;
-      else if (style.fontSize.endsWith('em')) fontSize = parseFloat(style.fontSize) * 18 * DPI;
-    }
+    let fontFamily = '"Nanum Gothic", sans-serif'; // 기본값
+
     // Quill class 기준 크기 동적으로 조정
     if (node.classList && node.classList.contains('ql-size-small'))  fontSize = Math.round(fontRatio * 0.6);
     if (node.classList && node.classList.contains('ql-size-large'))  fontSize = Math.round(fontRatio * 1.5);
     if (node.classList && node.classList.contains('ql-size-huge'))   fontSize = Math.round(fontRatio * 2.0);
     if (!fontSize) fontSize = fontRatio; // 기본(normal)
+
+    // Quill font 클래스 -> 실제 fontFamily 매핑
+    if (node.classList) {
+      if (node.classList.contains('ql-font-noto-sans-kr')) fontFamily = "'Noto Sans KR', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif";
+      if (node.classList.contains('ql-font-nanum-gothic')) fontFamily = "'Nanum Gothic', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif";
+      if (node.classList.contains('ql-font-nanum-myeongjo')) fontFamily = "'Nanum Myeongjo', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif";
+      if (node.classList.contains('ql-font-nanum-pen-script')) fontFamily = "'Nanum Pen Script', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif";
+      // serif, sans-serif, monospace는 간단 매핑
+      if (node.classList.contains('ql-font-serif')) fontFamily = "serif";
+      if (node.classList.contains('ql-font-sans-serif')) fontFamily = "sans-serif";
+      if (node.classList.contains('ql-font-monospace')) fontFamily = "monospace";
+    }
+
+    if (style.fontFamily) fontFamily = style.fontFamily;
+
     if (node.nodeType === 1 && node.tagName === 'STRONG') fontWeight = "bold";
     if (node.nodeType === 1 && node.tagName === 'EM') fontStyle = "italic";
     let textDecoration = style.textDecoration || "";
     if (node.nodeType === 1 && node.tagName === 'U') textDecoration += " underline";
-    let font = `${fontWeight} ${fontStyle} ${fontSize}px "Nanum Gothic", sans-serif`;
+    let font = `${fontWeight} ${fontStyle} ${fontSize}px ${fontFamily}`;
     spans.push({text, color, font, textDecoration});
   });
   return spans;
 }
+
 
 function focusIntroWithEditor(mesh) {
 
