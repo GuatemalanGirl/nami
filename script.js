@@ -3541,3 +3541,45 @@ window.showPanel = function (panelId) {
   })
   document.getElementById(panelId).classList.add("active")
 }
+
+function isNavButtonsHidden() {
+  const nav = document.getElementById("navButtons");
+  return nav?.classList.contains("slide-down");
+}
+
+document.addEventListener("keydown", function(e) {
+  
+  if (isNavButtonsHidden()) return;
+
+  const active = document.activeElement;
+  if (
+    active.tagName === "INPUT" ||
+    active.tagName === "TEXTAREA" ||
+    active.classList.contains("ql-editor")
+  ) {
+    return;
+  }
+
+  switch (e.key) {
+    case "ArrowLeft":
+    case "a":
+    case "A":  
+      document.getElementById("leftButton")?.click();
+      break;
+    case "ArrowRight":
+    case "d":
+    case "D":
+      document.getElementById("rightButton")?.click();
+      break;
+    case "ArrowUp":
+    case "w":
+    case "W":
+      document.getElementById("infoButton")?.click();
+      break;
+    case "ArrowDown":
+    case "s":
+    case "S":
+      document.getElementById("homeButton")?.click();
+      break;
+  }
+});
