@@ -1856,6 +1856,7 @@ function showResizeSizeButtons(mesh) {
   `;
 
   editingButtonsDiv.innerHTML = html;
+  editingButtonsDiv.style.display = 'block';
 
   // 크기버튼이 존재할 때만 (작품일 때만)
   if (isArtwork && isPaintingMode) {
