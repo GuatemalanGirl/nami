@@ -78,8 +78,8 @@ button:hover {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
-  flex-direction: column;    /* ← 세로 쌓기 (중요!) */
-  align-items: center;       /* ← 버튼 가운데 정렬 */
+  flex-direction: column; /* ← 세로 쌓기 (중요!) */
+  align-items: center; /* ← 버튼 가운데 정렬 */
   gap: 10px;
   z-index: 1;
   transition: transform 0.4s ease;
@@ -87,6 +87,27 @@ button:hover {
 .nav-buttons.slide-down {
   transform: translate(-50%, 200px);
   pointer-events: none;
+}
+
+/* 토글 버튼 */
+.nav-toggle {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  border: none;
+  font-size: 24px; /* ☰ 아이콘 크기 */
+  background: #222;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.nav-toggle:active {
+  transform: scale(0.9);
 }
 
 .direction-row {
@@ -279,13 +300,13 @@ button.settings-icon:hover {
 /* ───────── 모바일 전용 스타일 ───────── */
 @media (max-width: 600px) {
   .settings-panel {
-    width: 100vw;        /* 화면 전체 너비 */
-    height: 100vh;       /* 화면 전체 높이 */
-    border-radius: 0;    /* 모서리 제거 */
-    overflow-y: auto;    /* 내부 스크롤 허용 */
+    width: 100vw; /* 화면 전체 너비 */
+    height: 100vh; /* 화면 전체 높이 */
+    border-radius: 0; /* 모서리 제거 */
+    overflow-y: auto; /* 내부 스크롤 허용 */
   }
   .settings-slide {
-    padding: 10px;       /* 패딩 조금 축소 */
+    padding: 10px; /* 패딩 조금 축소 */
   }
 }
 
@@ -340,8 +361,8 @@ button.settings-icon:hover {
 
 #galleryInfo {
   position: fixed;
-  bottom: 10px;
-  left: 10px;
+  top: 120px;
+  left: 15px;
   /*background-color: rgba(255, 255, 255, 0.7);*/
   /*padding: 10px 15px;*/
   border-radius: 10px;
@@ -478,8 +499,10 @@ button.settings-icon:hover {
   border-radius: 14px;
   border: 2px solid #bbb;
   cursor: grab;
-  transition: border 0.3s, box-shadow 0.3s;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+  transition:
+    border 0.3s,
+    box-shadow 0.3s;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
   background: #fafaff;
 }
 .intro-object-grid img:active {
@@ -489,23 +512,23 @@ button.settings-icon:hover {
 }
 
 #introTextEditorOverlay {
-  background: rgba(255,255,255,0.96);  /* 거의 흰색, 불투명도 조정 가능 */
+  background: rgba(255, 255, 255, 0.96); /* 거의 흰색, 불투명도 조정 가능 */
   border-radius: 20px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.14);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.14);
   padding: 18px 24px 12px 24px;
   display: flex;
   flex-direction: column;
   position: fixed;
-  min-height: 80px;         /* 입력부의 최소 높이 (더 줄일 수 있음) */
-  max-height: 240px;        /* 입력부의 최대 높이 (원하는 값으로) */
+  min-height: 80px; /* 입력부의 최소 높이 (더 줄일 수 있음) */
+  max-height: 240px; /* 입력부의 최대 높이 (원하는 값으로) */
 }
 
 /* 편집 영역은 남은 높이를 모두 사용 */
-#quillEditor{
-  flex : 1 1 auto;
-  min-height: 40px;         /* 입력부의 최소 높이 (더 줄일 수 있음) */
-  max-height: 120px;        /* 입력부의 최대 높이 (원하는 값으로) */
-  overflow-y : auto;
+#quillEditor {
+  flex: 1 1 auto;
+  min-height: 40px; /* 입력부의 최소 높이 (더 줄일 수 있음) */
+  max-height: 120px; /* 입력부의 최대 높이 (원하는 값으로) */
+  overflow-y: auto;
 }
 
 /* 에디터 내부 단락마다 6px 간격 주기 */
@@ -514,36 +537,40 @@ button.settings-icon:hover {
   margin: 0 0 6px;
 }
 
-.ql-editor span[style*="color: rgb(255, 255, 255)"], 
-.ql-editor span[style*="color: #fff"], 
+.ql-editor span[style*="color: rgb(255, 255, 255)"],
+.ql-editor span[style*="color: #fff"],
 .ql-editor span[style*="color: #ffffff"] {
   /* 흰색 텍스트에만 외곽선 효과 */
   text-shadow:
-    -1px -1px 0 #222,  
-     1px -1px 0 #222,
-    -1px  1px 0 #222,
-     1px  1px 0 #222;
+    -1px -1px 0 #222,
+    1px -1px 0 #222,
+    -1px 1px 0 #222,
+    1px 1px 0 #222;
 }
 
 /* 에디터 기본 한글 폰트 적용 */
 .ql-editor {
   font-family:
-    'Noto Sans KR', 'Nanum Gothic', 'Nanum Myeongjo', 'Nanum Pen Script',
-    'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif !important;
+    "Noto Sans KR", "Nanum Gothic", "Nanum Myeongjo", "Nanum Pen Script",
+    "Apple SD Gothic Neo", "맑은 고딕", Arial, sans-serif !important;
 }
 
 /* Quill 폰트 클래스를 각각 폰트에 매핑 */
 .ql-font-noto-sans-kr {
-  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+  font-family:
+    "Noto Sans KR", "Apple SD Gothic Neo", "맑은 고딕", Arial, sans-serif;
 }
 .ql-font-nanum-gothic {
-  font-family: 'Nanum Gothic', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+  font-family:
+    "Nanum Gothic", "Apple SD Gothic Neo", "맑은 고딕", Arial, sans-serif;
 }
 .ql-font-nanum-myeongjo {
-  font-family: 'Nanum Myeongjo', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+  font-family:
+    "Nanum Myeongjo", "Apple SD Gothic Neo", "맑은 고딕", Arial, sans-serif;
 }
 .ql-font-nanum-pen-script {
-  font-family: 'Nanum Pen Script', 'Apple SD Gothic Neo', '맑은 고딕', Arial, sans-serif;
+  font-family:
+    "Nanum Pen Script", "Apple SD Gothic Neo", "맑은 고딕", Arial, sans-serif;
 }
 
 /* 툴바에서 폰트 이름 한글로 표시 */
@@ -555,25 +582,33 @@ button.settings-icon:hover {
 .ql-snow .ql-picker.ql-font .ql-picker-item[data-value="nanum-gothic"]::before {
   content: "나눔고딕";
 }
-.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="nanum-myeongjo"]::before,
-.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="nanum-myeongjo"]::before {
+.ql-snow
+  .ql-picker.ql-font
+  .ql-picker-label[data-value="nanum-myeongjo"]::before,
+.ql-snow
+  .ql-picker.ql-font
+  .ql-picker-item[data-value="nanum-myeongjo"]::before {
   content: "나눔명조";
 }
-.ql-snow .ql-picker.ql-font .ql-picker-label[data-value="nanum-pen-script"]::before,
-.ql-snow .ql-picker.ql-font .ql-picker-item[data-value="nanum-pen-script"]::before {
+.ql-snow
+  .ql-picker.ql-font
+  .ql-picker-label[data-value="nanum-pen-script"]::before,
+.ql-snow
+  .ql-picker.ql-font
+  .ql-picker-item[data-value="nanum-pen-script"]::before {
   content: "나눔펜";
 }
 
 /* 버튼 막대 – 가운데 정렬 + 아래 붙이기 */
-#overlayBtnBar{
-  position : fixed;
-  bottom : 10px;
-  left : 50%;
-  transform : translateX(-50%);
-  display : flex;
-  justify-content : center; /* 가운데 정렬 */
+#overlayBtnBar {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  justify-content: center; /* 가운데 정렬 */
   align-items: center;
-  gap : 10px; /* 버튼 간격 */
+  gap: 10px; /* 버튼 간격 */
 }
 
 .overlay-panel {
@@ -581,9 +616,9 @@ button.settings-icon:hover {
   left: 50%;
   bottom: 70px;
   transform: translateX(-50%);
-  background: rgba(255,255,255,0.96);
+  background: rgba(255, 255, 255, 0.96);
   border-radius: 20px;
-  box-shadow: 0 4px 24px rgba(0,0,0,0.13);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.13);
   padding: 28px 32px 18px 32px;
   z-index: 1200;
   display: flex;
@@ -651,18 +686,18 @@ input.color-pick-btn[type="color"] {
 }
 
 .artwall-grid {
-  grid-template-columns: 1fr;      /* 세로 3장 */
+  grid-template-columns: 1fr; /* 세로 3장 */
   display: grid;
-  grid-auto-rows: 120px;           /* 각 썸네일 높이 */
+  grid-auto-rows: 120px; /* 각 썸네일 높이 */
   gap: 10px;
-  width: max-content;              /* 그리드 자체를 가운데로   */
-  margin: 10px auto 0;             /*  ↑↔ 가운데 정렬          */
+  width: max-content; /* 그리드 자체를 가운데로   */
+  margin: 10px auto 0; /*  ↑↔ 가운데 정렬          */
 }
 
 .artwall-grid img.thumbnail {
-  width: 100%;                     /* 셀을 꽉 채움             */
+  width: 100%; /* 셀을 꽉 채움             */
   height: 100%;
-  object-fit: cover;               /* 비율 유지, 넘친 부분 잘라냄 */
+  object-fit: cover; /* 비율 유지, 넘친 부분 잘라냄 */
   border-radius: 10px;
   cursor: grab;
   transition: transform 0.3s ease;
@@ -670,5 +705,313 @@ input.color-pick-btn[type="color"] {
 
 .artwall-grid img.thumbnail:active {
   cursor: grabbing;
-  transform: scale(0.95);          /* 드래그 중 살짝 축소 */
+  transform: scale(0.95); /* 드래그 중 살짝 축소 */
+}
+
+/* ───────── 패널 자체 ───────── */
+.social-panel {
+  position: fixed;
+  right: 30px;
+  bottom: 0;
+  width: min(90vw, 400px);
+  height: 50vh;
+  display: flex;
+  flex-direction: column;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.16);
+  overflow: hidden;
+  z-index: 999;
+  transform: translateY(100%); /* 평소엔 아래로 슬라이드 숨김 */
+  pointer-events: none;
+  transition: transform 0.4s ease-in-out; /* settingsPanel과 통일! */
+}
+
+/* 패널이 열릴 때(open 클래스) */
+.social-panel.open {
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* 버튼 배치 예시 */
+.button-row {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+/* ───────── 우측 하단 토글 버튼 ───────── */
+.social-toggle {
+  position: fixed;
+  bottom: 24px;
+  right: 24px; /* settingsToggle 이 좌측이면 대칭 위치 */
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  border: none;
+  background: #222 url("./assets/chat-off.svg") center/32px 32px no-repeat;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+  transition:
+    transform 0.2s,
+    background-image 0.2s;
+}
+
+.social-toggle.on {
+  background-image: url("./assets/chat-on.svg");
+}
+.social-toggle:active {
+  transform: scale(0.9);
+}
+
+.social-toggle.open {
+  transform: translateY(-50vh); /* 소셜창 높이+ 만큼 이동 */
+  transition: transform 0.4s ease;
+}
+
+.social-panel .comment-section {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+}
+
+.social-panel .comments-list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0; /* 이거 꼭 있어야 flex로 스크롤 작동! */
+  padding: 12px 18px 8px 18px;
+  margin: 0;
+  box-sizing: border-box;
+  background: #fafafa;
+}
+
+.social-panel .comment-input-area {
+  flex-shrink: 0; /* 하단 고정! */
+  display: flex;
+  min-height: 28px; /* 1줄이면 28~32px 추천 */
+  max-height: 60px; /* 2~3줄 이상은 스크롤 */
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 18px 14px 18px;
+  background: #fff;
+  border-top: 1px solid #eee;
+  box-sizing: border-box;
+}
+
+.social-panel #comment-input {
+  flex: 1;
+  resize: none;
+  border: 1px solid #dbdbdb;
+  border-radius: 5px;
+  padding: 8px;
+  font-size: 14px;
+  min-height: 28px;
+  max-height: 132px; /* 6줄 제한: 22px*6 */
+  background: #fafafa;
+  outline: none;
+  overflow-y: auto; /* 6줄 넘으면 스크롤 */
+  line-height: 1.5;
+}
+
+.social-panel .comment-item {
+  margin-bottom: 8px;
+  padding-left: 0;
+  border-left: 2px solid transparent;
+  position: relative;
+}
+
+.social-panel .comment-content {
+  padding: 7px 0 4px 0;
+  font-size: 15px;
+  color: #262626;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.social-panel .meta-info {
+  color: #8e8e8e;
+  font-size: 12px;
+  margin-left: 2px;
+  margin-right: 6px;
+}
+
+.social-panel .heart-btn {
+  background: none;
+  border: none;
+  font-size: 17px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 2px;
+  margin-right: 4px;
+  transition:
+    color 0.15s,
+    filter 0.15s;
+  color: #ed4956;
+  filter: grayscale(0.5);
+}
+
+.social-panel .heart-btn.liked {
+  filter: grayscale(0);
+  color: #ed4956;
+  font-weight: bold;
+  text-shadow:
+    0 0 2px #ed4956,
+    0 0 2px #ed4956;
+}
+
+.social-panel .heart-btn:not(.liked) {
+  color: #dbdbdb;
+  text-shadow: none;
+}
+
+.social-panel .heart-count {
+  font-size: 13px;
+  margin-right: 3px;
+  min-width: 12px;
+  text-align: center;
+  color: #ed4956;
+  vertical-align: middle;
+}
+
+.social-panel .reply-btn {
+  background: none;
+  border: none;
+  color: #8e8e8e;
+  cursor: pointer;
+  font-size: 13px;
+  margin-left: 4px;
+}
+
+.social-panel .reply-input-area {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+  margin-bottom: 3px;
+}
+
+.social-panel .reply-input {
+  flex: 1;
+  resize: none;
+  border: 1px solid #dbdbdb;
+  border-radius: 5px;
+  padding: 6px;
+  font-size: 13px;
+  min-height: 28px;
+  max-height: 50px;
+  background: #fafafa;
+  outline: none;
+}
+.social-panel .reply-submit-btn {
+  padding: 5px 10px;
+  background: #0095f6;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  font-size: 13px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.social-panel .reply-submit-btn:enabled {
+  opacity: 1;
+}
+
+.social-panel .children {
+  margin-left: 24px;
+  border-left: 2px solid #f0f0f0;
+  padding-left: 8px;
+}
+
+.social-panel #submit-btn {
+  padding: 8px 14px;
+  align-items: center;
+  background: #0095f6;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.social-panel #submit-btn:enabled {
+  opacity: 1;
+}
+
+.award-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px 0 18px;
+  gap: 8px;
+  background: #f8fafc;
+  border-bottom: 1px solid #eee;
+}
+
+.award-btn {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  background: #fff;
+  border: 1px solid #dbdbdb;
+  border-radius: 18px;
+  font-size: 18px;
+  padding: 7px 0 5px 0;
+  cursor: pointer;
+  transition:
+    background 0.18s,
+    box-shadow 0.18s;
+  min-width: 60px;
+  min-height: 46px;
+  user-select: none;
+  box-shadow: 0 1px 6px rgba(100, 150, 255, 0.03);
+}
+.award-btn:hover,
+.award-btn.selected {
+  background: #e3f2fd;
+  border-color: #87cefa;
+  box-shadow: 0 2px 10px rgba(100, 150, 255, 0.09);
+}
+
+.award-btn span {
+  font-size: 12px;
+  color: #444;
+  margin-top: 2px;
+}
+
+.award-count {
+  position: absolute;
+  bottom: 35px;
+  left: 55px;
+  min-width: 20px;
+  height: 20px;
+  line-height: 19px;
+  background: #ff8b79;
+  color: #fff;
+  font-size: 12px;
+  font-weight: bold;
+  border-radius: 14px;
+  display: inline-block;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+  z-index: 2;
+  padding: 0 5px;
 }
