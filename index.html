@@ -6,12 +6,17 @@
     <title>NAMI_BETA</title>
     <link rel="stylesheet" href="style.css" />
 
-    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+    <link
+      href="https://cdn.quilljs.com/1.3.7/quill.snow.css"
+      rel="stylesheet"
+    />
     <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 
     <!-- 구글 한글 폰트 모음 -->
-    <link href="https://fonts.googleapis.com/css?family=Noto+Sans+KR:400,700|Nanum+Gothic:400,700|Nanum+Myeongjo:400,700|Nanum+Pen+Script&display=swap" rel="stylesheet">
-
+    <link
+      href="https://fonts.googleapis.com/css?family=Noto+Sans+KR:400,700|Nanum+Gothic:400,700|Nanum+Myeongjo:400,700|Nanum+Pen+Script&display=swap"
+      rel="stylesheet"
+    />
 
     <script type="importmap">
       {
@@ -24,8 +29,7 @@
     </script>
   </head>
   <body>
-  
-   <div id="galleryInfo"></div>
+    <div id="galleryInfo"></div>
 
     <div id="loadingScreen">
       <div class="loadingText">로딩 중..</div>
@@ -43,7 +47,7 @@
         <p style="margin-top: 20px">클릭하면 시작합니다!</p>
       </div>
     </div>
-  
+
     <img
       src="https://raw.githubusercontent.com/GuatemalanGirl/mygallery/main/logo/nami_combi_logo.png"
       alt="Logo"
@@ -58,6 +62,9 @@
         <button id="rightButton">→</button>
       </div>
     </div>
+
+    <!-- 네비게이션 버튼 on/off 토글 -->
+    <button id="navButtonsToggle" class="nav-toggle"></button> 
 
     <div id="infoModal">
       <div id="infoContent"></div>
@@ -117,7 +124,7 @@
           <h4>
             나미의 배경을 설정합니다.<br />전시테마에 맞게 설정이 가능합니다.
           </h4>
-   
+
           <!-- 배경 썸네일 그리드 -->
           <div class="background-grid" id="backgroundGrid">
             <!-- js로 그림 썸네일 자동 생성 -->
@@ -131,21 +138,21 @@
             <button onclick="showPanel('panel-main')">←</button>
           </div>
         </div>
-        
+
         <div class="settings-slide" id="panel-paintings">
           <h3>작품선택</h3>
           <br />
           <h4>
             전시할 작품을 선택합니다.<br />원하는 위치에 배치할 수 있습니다.
           </h4>
-    
+
           <!-- 좌우 벽 전환 버튼 -->
           <div class="wall-nav">
-           <button class="wall-left-btn"><</button>
-           <span class="current-wall-label">Front</span>
-           <button class="wall-right-btn">></button>
+            <button class="wall-left-btn"><</button>
+            <span class="current-wall-label">Front</span>
+            <button class="wall-right-btn">></button>
           </div>
-          
+
           <!-- 작품 썸네일 그리드 -->
           <div class="painting-grid" id="paintingGrid">
             <!-- js로 그림 썸네일 자동 생성 -->
@@ -158,28 +165,38 @@
 
           <!-- 확인/뒤로가기 버튼 -->
           <div class="button-row">
-            <button id="applyPaintingsButton">확인</button>
             <button onclick="showPanel('panel-main')">←</button>
           </div>
         </div>
-        
+
         <div class="settings-slide" id="panel-intro">
           <h3>전시서문쓰기</h3>
           <br />
-          <h4>
-            전시서문을 작성합니다.<br />원하는 위치에 배치할 수 있습니다.
-          </h4>
+          <h4>전시서문을 작성합니다.<br />원하는 위치에 배치할 수 있습니다.</h4>
           <div class="wall-nav">
-           <button class="wall-left-btn"><</button>
-           <span class="current-wall-label">Front</span>
-           <button class="wall-right-btn">></button>
+            <button class="wall-left-btn"><</button>
+            <span class="current-wall-label">Front</span>
+            <button class="wall-right-btn">></button>
           </div>
           <div class="intro-object-grid">
-            <img src="frame-thumbnail.png" draggable="true" id="introFrameThumb" title="프레임 서문" style="background:#ffe4b5;object-fit:contain;" alt="프레임 서문"/>
-            <img src="plane-thumbnail.png" draggable="true" id="introPlaneThumb" title="벽면 서문" style="background:#cde0ff;object-fit:contain;" alt="벽면 서문"/>
+            <img
+              src="frame-thumbnail.png"
+              draggable="true"
+              id="introFrameThumb"
+              title="프레임 서문"
+              style="background: #ffe4b5; object-fit: contain"
+              alt="프레임 서문"
+            />
+            <img
+              src="plane-thumbnail.png"
+              draggable="true"
+              id="introPlaneThumb"
+              title="벽면 서문"
+              style="background: #cde0ff; object-fit: contain"
+              alt="벽면 서문"
+            />
           </div>
           <div class="button-row">
-            <button id="applyIntroButton">확인</button>
             <button onclick="showPanel('panel-main')">←</button>
           </div>
         </div>
@@ -187,13 +204,11 @@
         <div class="settings-slide" id="panel-artwalls">
           <h3>아트월설정</h3>
           <br />
-          <h4>
-            아트월을 설정합니다.<br />원하는 위치에 배치할 수 있습니다.
-          </h4>
+          <h4>아트월을 설정합니다.<br />원하는 위치에 배치할 수 있습니다.</h4>
           <div class="wall-nav">
-           <button class="wall-left-btn"><</button>
-           <span class="current-wall-label">Front</span>
-           <button class="wall-right-btn">></button>
+            <button class="wall-left-btn"><</button>
+            <span class="current-wall-label">Front</span>
+            <button class="wall-right-btn">></button>
           </div>
           <div id="artwallGrid" class="artwall-grid"></div>
           <!-- ===== 페이지 버튼 ===== -->
@@ -202,11 +217,10 @@
             <button id="nextArtPageBtn">&gt;</button>
           </div>
           <div class="button-row">
-            <button id="applyArtwallsButton">확인</button>
             <button onclick="showPanel('panel-main')">←</button>
           </div>
         </div>
-        
+
         <div class="settings-slide" id="panel-etc">
           <h3>6</h3>
           <button onclick="showPanel('panel-main')">←</button>
@@ -215,16 +229,52 @@
     </div>
 
     <!-- 작품 편집 하단 버튼 (동적으로 토글됨) -->
-    <div id="paintingEditButtons" style="display:none; position:fixed; left:50%; bottom:90px; transform:translateX(-50%); z-index:1001;"></div>
+    <div
+      id="paintingEditButtons"
+      style="
+        display: none;
+        position: fixed;
+        left: 50%;
+        bottom: 90px;
+        transform: translateX(-50%);
+        z-index: 1001;
+      "
+    ></div>
 
     <!-- textarea 오버레이도 HTML에 추가해 주세요! -->
-    <div id="introTextEditorOverlay" style="display:none; position:fixed; z-index:1100;">
+    <div
+      id="introTextEditorOverlay"
+      style="display: none; position: fixed; z-index: 1100"
+    >
       <div id="quillEditor"></div>
       <div id="overlayBtnBar">
         <button id="introTextApplyBtn">확인</button>
         <button id="introTextCancelBtn">취소</button>
       </div>
     </div>
+
+    <!-- ───────── 소셜 패널 ───────── -->
+    <div id="socialPanel" class="social-panel">
+      <h3>COMMENTS / AWARDS</h3>
+      <div class="comment-section">
+        <div id="comments-list" class="comments-list"></div>
+        <div class="comment-input-area">
+          <textarea id="comment-input" placeholder="댓글 달기..." rows="1"></textarea>
+          <button id="submit-btn" disabled>게시</button>
+        </div>
+      </div>
+      <div class="award-section">
+        <button class="award-btn" data-type="like">🌟<br><span>기획/완성</span><span class="award-count">0</span></button>
+        <button class="award-btn" data-type="cheer">👏<br><span>재미/감동</span><span class="award-count">0</span></button>
+        <button class="award-btn" data-type="wow">😍<br><span>예술/창의</span><span class="award-count">0</span></button>
+        <button class="award-btn" data-type="recommend">👍<br><span>추천</span><span class="award-count">0</span></button>
+      </div>
+    </div>
+
+
+    <!-- 소셜 패널 토글 버튼 (우측 하단) -->
+    <button id="socialToggle" class="social-toggle" aria-label="소셜 토글"></button>
+
 
     <script type="module" src="script.js"></script>
   </body>
