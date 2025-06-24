@@ -3445,13 +3445,21 @@ socialToggle.addEventListener("click", () => {
   socialPanel.classList.toggle("open")
   socialToggle.classList.toggle("open")
 
-  // 닫히는 순간이면 입력창 비우기!
+  // 닫히는 순간이면 입력창(댓글/대댓글) 비우기!
   if (isOpen) {
     const commentInput = document.getElementById("comment-input")
     if (commentInput) {
       commentInput.value = ""
       commentInput.style.height = "28px" // 혹시 height 자동조절중이면 min-height로
     }
+    document.querySelectorAll(".reply-input").forEach(reply => {
+    reply.value = ""
+    reply.style.height = "28px"
+    })
+    // 모든 대댓글창 자체 닫기
+    document.querySelectorAll(".reply-input-area").forEach(box => {
+      box.remove() // 또는 box.style.display = "none"
+    })
   }
 })
 
@@ -3528,10 +3536,10 @@ function addComment(text) {
 }
 
 function renderComments() {
-  commentsList.innerHTML = ""
-  comments.forEach((comment) => {
-    commentsList.appendChild(renderCommentItem(comment))
-  })
+  commentsList.innerHTML = "";
+  comments.slice().reverse().forEach((comment) => {
+    commentsList.appendChild(renderCommentItem(comment));
+  });
 }
 
 function renderCommentItem(comment) {
