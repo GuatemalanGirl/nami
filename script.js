@@ -99,7 +99,7 @@ let tempArtwalls = [] // 편집 중 임시 Mesh
 let originalArtwallsState = [] // 롤백용
 let artwallsData = [] // [{filename, title, …}, …]
 let currentArtwallsPage = 0
-const artwallsItemsPerPage = 3
+let artwallsItemsPerPage = 3
 
 let currentPage = 0
 const itemsPerPage = 9
