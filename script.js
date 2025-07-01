@@ -196,7 +196,7 @@ const textureLoader = new THREE.TextureLoader()
 
 async function init() {
   scene = new THREE.Scene()
-  scene.background = new THREE.Color(0xffe6cf)
+  scene.background = new THREE.Color(0xffffff)
 
   camera = new THREE.PerspectiveCamera(
     CAMERA_FOV,
